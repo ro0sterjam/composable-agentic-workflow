@@ -1,0 +1,19 @@
+{
+  "name": "@composable-search/playground",
+  "version": "1.0.0",
+  "description": "Playground for testing the DAG SDK",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "run": "tsx src/index.ts",
+    "watch": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+

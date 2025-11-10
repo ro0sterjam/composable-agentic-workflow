@@ -1,0 +1,19 @@
+{
+  "name": "@composable-search/sdk",
+  "version": "1.0.0",
+  "description": "SDK for building composable search DAGs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["dag", "graph", "composable", "search"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
+
