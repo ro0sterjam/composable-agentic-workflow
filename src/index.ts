@@ -1,27 +1,72 @@
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
-import * as dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import { DAGBuilder } from './dag/dag';
+import {
+  createExecutionNode,
+  createConditionalNode,
+  createAggregatorNode,
+} from './nodes/node-factory';
 
 async function main() {
-  // Check if API key is set
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set in .env file');
-  }
+  // Example: Create a simple DAG with execution nodes
+  const builder = new DAGBuilder('example-dag');
 
-  try {
-    const { text } = await generateText({
-      model: openai.chat('gpt-5'), // Using GPT-5
-      prompt: 'Hello! Can you tell me a fun fact?',
-    });
+  // Create some execution nodes
+  const node1 = createExecutionNode('node1', async (input) => {
+    console.log('Node 1 executing with input:', input);
+    return { processed: input, step: 1 };
+  }, { label: 'Process Input' });
 
-    console.log('Response:', text);
-  } catch (error) {
-    console.error('Error:', error);
-    process.exit(1);
-  }
+  const node2 = createExecutionNode('node2', async (input) => {
+    console.log('Node 2 executing with input:', input);
+    const inputObj = input as Record<string, unknown>;
+    return { ...inputObj, step: 2 };
+  }, { label: 'Transform Data' });
+
+  const conditional = createConditionalNode(
+    'conditional1',
+    async (input: unknown) => {
+      const inputObj = input as { step?: number };
+      return inputObj?.step === 2;
+    },
+    { label: 'Check Condition' }
+  );
+
+  const aggregator = createAggregatorNode(
+    'aggregator1',
+    async (inputs) => {
+      console.log('Aggregating inputs:', inputs);
+      return { aggregated: inputs, count: inputs.length };
+    },
+    {
+      label: 'Aggregate Results',
+      inputPorts: [
+        { id: 'input1', label: 'Input 1' },
+        { id: 'input2', label: 'Input 2' },
+      ],
+    }
+  );
+
+  // Add nodes to DAG
+  builder
+    .addNode(node1)
+    .addNode(node2)
+    .addNode(conditional)
+    .addNode(aggregator)
+    .setEntryNode('node1')
+    .connect('node1', 'output', 'node2', 'input')
+    .connect('node2', 'output', 'conditional1', 'input')
+    .addExitNode('conditional1');
+
+  // Validate
+  const validation = builder.validate();
+  console.log('DAG Validation:', validation);
+
+  // Get the DAG
+  const dag = builder.build();
+  console.log('DAG created with', dag.nodes.size, 'nodes and', dag.connections.length, 'connections');
+
+  // Example: Get node connections
+  const node2Connections = builder.getNodeConnections('node2');
+  console.log('Node 2 connections:', node2Connections);
 }
 
 main().then(() => {
@@ -30,4 +75,3 @@ main().then(() => {
     process.exit(0);
   }
 });
-
