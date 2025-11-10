@@ -81,7 +81,7 @@ function NodeEditor({
       <LLMNodeEditor
         nodeId={nodeId}
         currentLabel={currentLabel}
-        currentModel={currentModel || 'openai/gpt-5'}
+        currentModel={currentModel || 'openai/gpt-4o'}
         currentStructuredOutput={currentStructuredOutput}
         onSave={(id, model, structuredOutput, label) => {
           onSave({ label: label || undefined, model, structuredOutput });

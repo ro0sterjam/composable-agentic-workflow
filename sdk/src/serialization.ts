@@ -102,7 +102,7 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
           label: serialized.label || serialized.id,
           inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
           outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          model: serialized.model || 'openai/gpt-5',
+          model: serialized.model || 'openai/gpt-4o',
           structuredOutput: serialized.structuredOutput,
           // Execute function will be handled by the executor
           execute: async () => { throw new Error('LLM execution handled by executor'); },

@@ -20,7 +20,7 @@ interface LLMNodeEditorProps {
   onClose: () => void;
 }
 
-const AVAILABLE_MODELS = ['openai/gpt-5', 'openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-4', 'openai/gpt-3.5-turbo'];
+const AVAILABLE_MODELS = ['openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-4', 'openai/gpt-3.5-turbo', 'openai/gpt-5'];
 
 function LLMNodeEditor({
   nodeId,
@@ -31,7 +31,7 @@ function LLMNodeEditor({
   onClose,
 }: LLMNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
-  const [model, setModel] = useState(currentModel || 'openai/gpt-5');
+  const [model, setModel] = useState(currentModel || 'openai/gpt-4o');
   const [useStructuredOutput, setUseStructuredOutput] = useState(!!currentStructuredOutput);
   const [structuredMode, setStructuredMode] = useState<'json' | 'json_schema' | 'tool'>(
     currentStructuredOutput?.mode || 'json'
@@ -44,7 +44,7 @@ function LLMNodeEditor({
   // Update state when props change (e.g., modal reopened)
   useEffect(() => {
     setLabel(currentLabel || '');
-    setModel(currentModel || 'openai/gpt-5');
+    setModel(currentModel || 'openai/gpt-4o');
     setUseStructuredOutput(!!currentStructuredOutput);
     setStructuredMode(currentStructuredOutput?.mode || 'json');
     setSchemaJson(

@@ -1134,7 +1134,7 @@ function App() {
                 currentModel = dagNode.model;
                 currentStructuredOutput = dagNode.structuredOutput;
               } else {
-                currentModel = node.data.model || 'openai/gpt-5';
+                currentModel = node.data.model || 'openai/gpt-4o';
                 currentStructuredOutput = node.data.structuredOutput;
               }
             }

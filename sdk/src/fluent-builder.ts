@@ -164,7 +164,7 @@ export class FluentDAGBuilder {
       label: id,
       inputPorts: [{ id: 'input', label: 'Input' }],
       outputPorts: [{ id: 'output', label: 'Output' }],
-      model: 'openai/gpt-5',
+      model: 'openai/gpt-4o', // Using gpt-4o for faster responses (gpt-5 is a reasoning model that's slower)
       execute,
     };
     this.currentNode = node;

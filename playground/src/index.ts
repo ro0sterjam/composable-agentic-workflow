@@ -18,7 +18,7 @@ async function main() {
   const builder = new FluentDAGBuilder('hello-llm-console');
   
   builder
-    .literal('hello', 'Hello')
+    .literal('hello', 'Best food in SF?')
     .label('Hello Literal')
     .to('llm', 'input');
   
@@ -27,7 +27,7 @@ async function main() {
       // The DAGExecutor will call executeLLMNode directly, so this is just a placeholder
       return input;
     })
-    .model('openai/gpt-5')
+    .model('openai/gpt-4o') // Using gpt-4o for faster responses
     .label('LLM Node')
     .to('console', 'input');
   

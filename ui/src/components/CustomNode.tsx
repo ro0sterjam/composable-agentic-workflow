@@ -133,7 +133,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
         )}
         {nodeType === NodeType.LLM && (
           <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
-            <span className="port-label">Model: {data.model || 'openai/gpt-5'}</span>
+            <span className="port-label">Model: {data.model || 'openai/gpt-4o'}</span>
             {data.structuredOutput && (
               <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
                 Structured: {data.structuredOutput.mode || 'json'}
