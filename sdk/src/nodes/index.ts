@@ -15,6 +15,7 @@ export * from './impl/dedupe';
 export * from './impl/cache';
 export * from './impl/extract';
 export * from './impl/filter';
+export * from './impl/agent';
 export * from './impl/models';
 export * from '../executors/registry';
 export * from '../executors/interpolation';

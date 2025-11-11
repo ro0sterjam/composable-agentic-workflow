@@ -23,7 +23,7 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
       );
     }
 
-    const { dag, executorRegistry } = dagContext;
+    const { dag, executorRegistry, cache } = dagContext;
 
     // Find the transformer node in the DAG
     const transformerNode = dag.nodes.find((n) => n.id === transformerId);
@@ -36,6 +36,7 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
       const result = await executeDAGFromNode(dag, transformerId, {
         executorRegistry,
         input: item,
+        cache,
       });
 
       if (!result.success) {

@@ -25,6 +25,7 @@ export const DEFAULT_NODE_TYPES = {
   CACHE: 'cache',
   EXTRACT: 'extract',
   FILTER: 'filter',
+  AGENT: 'agent',
 } as const;
 
 // Re-export node implementations
@@ -40,6 +41,7 @@ export {
   CacheTransformerNode,
   ExtractTransformerNode,
   FilterTransformerNode,
+  AgentTransformerNode,
 } from './nodes';
 export type {
   SimpleLLMTransformerNodeConfig,
@@ -57,6 +59,10 @@ export type {
   CacheTransformerNodeConfig,
   ExtractTransformerNodeConfig,
   FilterTransformerNodeConfig,
+  AgentTransformerNodeConfig,
+  AgentTransformerNodeConfigInput,
+  AgentToolConfig,
+  AgentToolConfigInput,
   Model,
   OpenAIModel,
   MODEL_OPTIONS,

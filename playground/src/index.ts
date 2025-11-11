@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
+import { AgentExecutor } from '../../sdk/src/executors/agent';
 import { CacheExecutor } from '../../sdk/src/executors/cache';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
@@ -28,6 +29,7 @@ import {
   CacheTransformerNode,
   ExtractTransformerNode,
   FilterTransformerNode,
+  AgentTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -76,26 +78,22 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer('extract', new ExtractExecutor());
   defaultExecutorRegistry.registerTransformer('filter', new FilterExecutor());
+  defaultExecutorRegistry.registerTransformer('agent', new AgentExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
 
-  // Create a simple DAG: literal source -> LLM transformer -> console terminal
-  const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
-    .pipe(new CacheTransformerNode('cacheQuery', { property: 'query' }))
-    .pipe(
-      new StructuredLLMTransformerNode('generateVariants', {
-        model: 'openai/gpt-4o-mini',
-        prompt: 'Generate 5 variants of the following query: ${input}',
-        schema: z.array(z.string()),
-      })
-    )
+  const toolFlow = new StructuredLLMTransformerNode('generateVariants', {
+    model: 'openai/gpt-4o-mini',
+    prompt: 'Generate 5 variants of the following query: ${input}',
+    schema: z.array(z.string()),
+  })
     .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
     .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
     .pipe(
       new MapTransformerNode(
         'mapText',
-        new ExtractTransformerNode('extract', { property: 'text' }).pipe(
+        new ExtractTransformerNode('extract', { property: 'summary' }).pipe(
           new StructuredLLMTransformerNode('summary', {
             model: 'openai/gpt-4o-mini',
             schema: z.string(),
@@ -105,7 +103,26 @@ async function main() {
         )
       )
     )
-    .pipe(new FilterTransformerNode('filter', { expression: 'input !== "No answer found"' }))
+    .pipe(new FilterTransformerNode('filter', { expression: 'input !== "No answer found"' }));
+
+  // Create a simple DAG: literal source -> LLM transformer -> console terminal
+  const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
+    .pipe(new CacheTransformerNode('cacheQuery', { property: 'query' }))
+    .pipe(
+      new AgentTransformerNode('agent', {
+        system:
+          'You are a helpful assistant that can perform a multi-query search and return the results.',
+        model: 'openai/gpt-4o-mini',
+        tools: [
+          {
+            name: 'multi_query_search',
+            description: 'Performs a multi-query search and returns the results',
+            inputSchema: z.string(),
+            transformer: toolFlow,
+          },
+        ],
+      })
+    )
     .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);

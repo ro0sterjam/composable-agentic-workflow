@@ -1,6 +1,29 @@
 import { TransformerNode } from '../types';
 
 /**
+ * Recursively extract the first non-sequential transformer node ID from a transformer node.
+ * If the transformer is a SequentialTransformerNode, recursively traverse to find the actual first transformer.
+ * @param transformer - The transformer node (may be a SequentialTransformerNode)
+ * @returns The ID of the first non-sequential transformer node in the chain
+ */
+function getFirstTransformerId(transformer: TransformerNode<any, any, any>): string {
+  if (transformer.type === 'sequential') {
+    const seqNode = transformer as any;
+    if (seqNode.first) {
+      // Recursively get the first transformer ID from the first node
+      return getFirstTransformerId(seqNode.first);
+    } else {
+      throw new Error(
+        'SequentialTransformerNode must have a first node to extract transformerId from.'
+      );
+    }
+  } else {
+    // This is a regular transformer node, return its ID
+    return transformer.id;
+  }
+}
+
+/**
  * Config type for FlatMapTransformerNode
  */
 export interface FlatMapTransformerNodeConfig {
@@ -25,7 +48,7 @@ export class FlatMapTransformerNode<InputType, OutputType> extends TransformerNo
   /**
    * Creates a new FlatMapTransformerNode
    * @param id - Unique identifier for the node
-   * @param transformer - The transformer node to apply to each element (must output an array). If a SequentialTransformerNode is provided, the transformerId will be extracted from the first node.
+   * @param transformer - The transformer node to apply to each element (must output an array). If a SequentialTransformerNode (or nested SequentialTransformerNodes) is provided, the transformerId will be recursively extracted from the first non-sequential transformer node.
    * @param config - Optional configuration with parallel flag (defaults to true). transformerId is added automatically.
    * @param label - Optional label for the node
    */
@@ -35,21 +58,8 @@ export class FlatMapTransformerNode<InputType, OutputType> extends TransformerNo
     config?: Omit<FlatMapTransformerNodeConfig, 'transformerId'>,
     label?: string
   ) {
-    // If it's a SequentialTransformerNode, extract the transformerId from the first node
-    // Otherwise, use the transformer's ID directly
-    let transformerId: string;
-    if (transformer.type === 'sequential') {
-      const seqNode = transformer as any;
-      if (seqNode.first) {
-        transformerId = seqNode.first.id;
-      } else {
-        throw new Error(
-          'SequentialTransformerNode must have a first node to extract transformerId from.'
-        );
-      }
-    } else {
-      transformerId = transformer.id;
-    }
+    // Recursively extract the first non-sequential transformer ID
+    const transformerId = getFirstTransformerId(transformer);
 
     super(
       id,
@@ -64,4 +74,3 @@ export class FlatMapTransformerNode<InputType, OutputType> extends TransformerNo
     this.transformer = transformer;
   }
 }
-

@@ -20,6 +20,7 @@ export interface NodeExecutionResult {
 export interface DAGExecutionResult {
   results: Map<string, NodeExecutionResult>;
   success: boolean;
+  lastNodeResult?: NodeExecutionResult; // Result of the last node executed in the graph/subgraph (may be undefined if last node is terminal)
 }
 
 /**
@@ -40,6 +41,11 @@ export interface ExecuteFromNodeOptions extends DAGExecutionOptions {
    * If not provided and the node is not a source node, an error will be thrown
    */
   input?: unknown;
+  /**
+   * Cache object to share across subgraph executions
+   * If not provided, a new cache will be created for this subgraph execution
+   */
+  cache?: Record<string, unknown>;
 }
 
 /**
@@ -156,11 +162,12 @@ export async function executeDAG(
     }
   }
 
-  // Collect all node IDs that are part of subgraphs executed by map/flatmap nodes
-  // These nodes are executed as part of the map/flatmap execution, not the main DAG flow
+  // Collect all node IDs that are part of subgraphs executed by map/flatmap/agent nodes
+  // These nodes are executed as part of their parent node's execution, not the main DAG flow
+  // They may execute conditionally, so we don't mark them as errors if they're not executed in the main flow
   const subgraphNodeIds = new Set<string>();
 
-  // Recursively find all nodes in subgraphs starting from map/flatmap transformers
+  // Recursively find all nodes in subgraphs starting from transformers
   const findSubgraphNodes = (transformerId: string, visited: Set<string>): void => {
     if (visited.has(transformerId)) {
       return; // Avoid infinite loops
@@ -170,29 +177,48 @@ export async function executeDAG(
     // Find all nodes reachable from this transformer node
     const reachableFromTransformer = findReachableNodes(dag, transformerId);
 
-    // Add all reachable nodes to the subgraph set
-    for (const nodeId of reachableFromTransformer) {
+    // Also include referenced nodes (e.g., transformerId in nested map/flatmap)
+    const referencedNodeIds = findReferencedNodes(dag, reachableFromTransformer);
+    const allSubgraphNodes = new Set([...reachableFromTransformer, ...referencedNodeIds]);
+
+    // Add all nodes to the subgraph set
+    for (const nodeId of allSubgraphNodes) {
       subgraphNodeIds.add(nodeId);
     }
 
-    // Find nested map/flatmap nodes in this subgraph and recursively process them
-    for (const nodeId of reachableFromTransformer) {
+    // Find nested map/flatmap/agent nodes in this subgraph and recursively process them
+    for (const nodeId of allSubgraphNodes) {
       const node = dag.nodes.find((n) => n.id === nodeId);
       if (!node) continue;
 
       const config = node.config as Record<string, unknown> | undefined;
       if (config && typeof config === 'object') {
+        // Check for nested map/flatmap nodes
         if ((node.type === 'map' || node.type === 'flatmap') && 'transformerId' in config) {
           const nestedTransformerId = config.transformerId;
           if (typeof nestedTransformerId === 'string') {
             findSubgraphNodes(nestedTransformerId, visited);
           }
         }
+        // Check for nested agent nodes (tools)
+        if (node.type === 'agent' && 'tools' in config) {
+          const tools = config.tools;
+          if (Array.isArray(tools)) {
+            for (const tool of tools) {
+              if (typeof tool === 'object' && tool !== null && 'transformerId' in tool) {
+                const toolTransformerId = tool.transformerId;
+                if (typeof toolTransformerId === 'string') {
+                  findSubgraphNodes(toolTransformerId, visited);
+                }
+              }
+            }
+          }
+        }
       }
     }
   };
 
-  // Find all map/flatmap nodes and process their subgraphs
+  // Find all map/flatmap/agent nodes and process their subgraphs
   for (const node of dag.nodes) {
     const config = node.config as Record<string, unknown> | undefined;
     if (config && typeof config === 'object') {
@@ -203,18 +229,33 @@ export async function executeDAG(
           findSubgraphNodes(transformerId, new Set<string>());
         }
       }
-      // Add other node reference patterns here as needed
+      // Check for tools in agent nodes
+      if (node.type === 'agent' && 'tools' in config) {
+        const tools = config.tools;
+        if (Array.isArray(tools)) {
+          for (const tool of tools) {
+            if (typeof tool === 'object' && tool !== null && 'transformerId' in tool) {
+              const toolTransformerId = tool.transformerId;
+              if (typeof toolTransformerId === 'string') {
+                findSubgraphNodes(toolTransformerId, new Set<string>());
+              }
+            }
+          }
+        }
+      }
     }
   }
 
   // Check if all nodes were executed
-  // Subgraph nodes (e.g., nodes executed by map/flatmap) are executed by their parent nodes,
+  // Subgraph nodes (e.g., nodes executed by map/flatmap/agent) are executed by their parent nodes,
   // so they don't need to be in the results map to be considered "executed"
+  // Since subgraphs may execute conditionally, we don't mark them as errors if they're not in the main flow
   const directlyExecutedNodeIds = new Set(results.keys());
-  const allDirectlyExecutedNodes =
-    directlyExecutedNodeIds.size + subgraphNodeIds.size >= nodes.size;
+  const nodesInMainFlow = nodes.size - subgraphNodeIds.size;
+  const allDirectlyExecutedNodes = directlyExecutedNodeIds.size >= nodesInMainFlow;
 
   // Check for nodes that should have been executed but weren't
+  // Skip nodes that are part of subgraphs - they execute conditionally and don't need to be in the main flow
   for (const nodeId of nodes.keys()) {
     if (!results.has(nodeId) && !subgraphNodeIds.has(nodeId)) {
       const node = nodes.get(nodeId)!;
@@ -261,6 +302,7 @@ export async function executeDAGFromNode(
     onNodeStart,
     onNodeComplete,
     input,
+    cache: providedCache,
   } = options;
 
   // Find the starting node
@@ -271,10 +313,22 @@ export async function executeDAGFromNode(
 
   // Find all nodes reachable from the starting node (downstream nodes)
   const reachableNodeIds = findReachableNodes(dag, startNodeId);
+  console.log(
+    `[executeDAGFromNode] Starting from node '${startNodeId}', found ${reachableNodeIds.size} reachable nodes:`,
+    Array.from(reachableNodeIds).join(', ')
+  );
 
   // Also include any nodes referenced by reachable nodes (e.g., transformerId in map/flatmap)
   const referencedNodeIds = findReferencedNodes(dag, reachableNodeIds);
+  console.log(
+    `[executeDAGFromNode] Found ${referencedNodeIds.size} referenced nodes:`,
+    Array.from(referencedNodeIds).join(', ')
+  );
   const allNodeIdsToExecute = new Set([...reachableNodeIds, ...referencedNodeIds]);
+  console.log(
+    `[executeDAGFromNode] Total nodes to execute: ${allNodeIdsToExecute.size}`,
+    Array.from(allNodeIdsToExecute).join(', ')
+  );
 
   // Build subgraph with only reachable nodes and their edges
   const subgraphNodes = dag.nodes.filter((node) => allNodeIdsToExecute.has(node.id));
@@ -290,10 +344,16 @@ export async function executeDAGFromNode(
   // Check if starting node is a source node
   const sourceExecutor = executorRegistry.getSource(startNode.type);
   const isSourceNode = !!sourceExecutor;
+  console.log(
+    `[executeDAGFromNode] Starting node '${startNodeId}' type: '${startNode.type}', isSourceNode: ${isSourceNode}, hasInput: ${input !== undefined}`
+  );
 
   // If not a source node and no input provided, check if it has incoming edges in the full graph
   if (!isSourceNode && input === undefined) {
     const hasIncomingEdges = dag.edges.some((edge) => edge.to === startNodeId);
+    console.log(
+      `[executeDAGFromNode] Starting node '${startNodeId}' is not a source node, hasIncomingEdges: ${hasIncomingEdges}`
+    );
     if (hasIncomingEdges) {
       throw new Error(
         `Starting node "${startNodeId}" is not a source node and requires input, but no input was provided. ` +
@@ -366,13 +426,31 @@ export async function executeDAGFromNode(
       if (nodeId === startNodeId && !isSourceNode && input !== undefined) {
         // Use provided input for starting node
         nodeInput = input;
+        console.log(
+          `[executeDAGFromNode] Node '${nodeId}' using provided input:`,
+          typeof nodeInput === 'string'
+            ? nodeInput.substring(0, 100) + (nodeInput.length > 100 ? '...' : '')
+            : JSON.stringify(nodeInput).substring(0, 100) + '...'
+        );
       } else {
         // Get input from connected nodes (or undefined if source node)
         nodeInput = getNodeInput(nodeId, subgraph.edges, nodeOutputs);
+        console.log(
+          `[executeDAGFromNode] Node '${nodeId}' input from edges:`,
+          nodeInput === undefined
+            ? 'undefined'
+            : typeof nodeInput === 'string'
+              ? nodeInput.substring(0, 100) + (nodeInput.length > 100 ? '...' : '')
+              : JSON.stringify(nodeInput).substring(0, 100) + '...'
+        );
       }
 
       // Execute the node
+      console.log(`[executeDAGFromNode] Executing node '${nodeId}' of type '${node.type}'`);
       const output = await executeNode(node, nodeInput, executorRegistry, dag, cache);
+      console.log(
+        `[executeDAGFromNode] Node '${nodeId}' execution completed, output type: ${typeof output}`
+      );
 
       // Store output
       nodeOutputs.set(nodeId, output);
@@ -417,12 +495,34 @@ export async function executeDAGFromNode(
     }
   }
 
-  // Check if all nodes in the subgraph were executed
-  const allExecuted = Array.from(allNodeIdsToExecute).every((nodeId) => results.has(nodeId));
+  // For subgraph execution, success means:
+  // 1. The starting node executed (or at least we attempted to execute it)
+  // 2. No errors occurred in any of the nodes that were executed
+  // Note: Not all nodes in the subgraph need to execute (e.g., terminal nodes, unreachable nodes)
+  const startingNodeExecuted = results.has(startNodeId);
+  const nodesWithErrors = Array.from(results.entries()).filter(([_, r]) => r.error);
+  const hasErrors = nodesWithErrors.length > 0;
+  const success = startingNodeExecuted && !hasErrors;
+
+  console.log(
+    `[executeDAGFromNode] Execution completed. Starting node executed: ${startingNodeExecuted}, Results: ${results.size}/${allNodeIdsToExecute.size}`
+  );
+  console.log(`[executeDAGFromNode] Executed nodes:`, Array.from(results.keys()).join(', '));
+  if (nodesWithErrors.length > 0) {
+    console.error(
+      `[executeDAGFromNode] Nodes with errors:`,
+      nodesWithErrors.map(([id, r]) => `${id}: ${r.error?.message}`).join(', ')
+    );
+  } else {
+    console.log(`[executeDAGFromNode] Nodes with errors: none`);
+  }
+  console.log(
+    `[executeDAGFromNode] Success: ${success} (startingNodeExecuted: ${startingNodeExecuted}, hasErrors: ${hasErrors})`
+  );
 
   return {
     results,
-    success: allExecuted && Array.from(results.values()).every((r) => !r.error),
+    success,
   };
 }
 
@@ -460,7 +560,7 @@ function findReachableNodes(dag: SerializedDAG, startNodeId: string): Set<string
 }
 
 /**
- * Find all nodes referenced by the given node IDs (e.g., transformerId in map/flatmap nodes)
+ * Find all nodes referenced by the given node IDs (e.g., transformerId in map/flatmap/agent nodes)
  */
 function findReferencedNodes(dag: SerializedDAG, nodeIds: Set<string>): Set<string> {
   const referenced = new Set<string>();
@@ -478,7 +578,20 @@ function findReferencedNodes(dag: SerializedDAG, nodeIds: Set<string>): Set<stri
           referenced.add(transformerId);
         }
       }
-      // Add other node reference patterns here as needed
+      // Check for tools in agent nodes
+      if (node.type === 'agent' && 'tools' in config) {
+        const tools = config.tools;
+        if (Array.isArray(tools)) {
+          for (const tool of tools) {
+            if (typeof tool === 'object' && tool !== null && 'transformerId' in tool) {
+              const toolTransformerId = tool.transformerId;
+              if (typeof toolTransformerId === 'string') {
+                referenced.add(toolTransformerId);
+              }
+            }
+          }
+        }
+      }
     }
   }
 

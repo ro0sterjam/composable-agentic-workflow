@@ -175,6 +175,20 @@ function extractNodesAndEdges(
     }
   }
 
+  // Special handling for agent nodes - need to serialize the nested transformer nodes in tools
+  if (nodeType === 'agent') {
+    const agentNode = node as any;
+    if (agentNode.tools && Array.isArray(agentNode.tools)) {
+      // Recursively extract transformer nodes from each tool
+      for (const tool of agentNode.tools) {
+        if (tool.transformer) {
+          extractNodesAndEdges(tool.transformer, state);
+          // The transformerId is already in the config from the AgentTransformerNode constructor
+        }
+      }
+    }
+  }
+
   // This is a regular node, add it to the nodes map
   const serializedNode: SerializedNode = {
     id: node.id,
