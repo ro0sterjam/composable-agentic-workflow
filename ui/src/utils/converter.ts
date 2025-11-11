@@ -25,6 +25,23 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         config.model = 'openai/gpt-5';
       }
+    } else if (nodeType === 'structured_llm') {
+      if (node.data.structuredLLMConfig) {
+        config.model = node.data.structuredLLMConfig.model || 'openai/gpt-5';
+        // Parse the schema string to JSON Schema object
+        try {
+          config.schema = JSON.parse(node.data.structuredLLMConfig.schema || '{}');
+        } catch {
+          // If parsing fails, use empty object
+          config.schema = {};
+        }
+        if (node.data.structuredLLMConfig.prompt) {
+          config.prompt = node.data.structuredLLMConfig.prompt;
+        }
+      } else {
+        config.model = 'openai/gpt-5';
+        config.schema = {};
+      }
     }
 
     return {

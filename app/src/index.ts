@@ -17,6 +17,7 @@ import dotenv from 'dotenv';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm.js';
+import { StructuredLLMExecutor } from '../../sdk/src/executors/structured-llm.js';
 import {
   executeDAG,
   type SerializedDAG,
@@ -75,6 +76,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
     })
   );
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
+  defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
 
   // Load DAG
   let serializedDAG: SerializedDAG;

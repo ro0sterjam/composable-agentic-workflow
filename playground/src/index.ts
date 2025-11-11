@@ -1,8 +1,10 @@
 import dotenv from 'dotenv';
+import { z } from 'zod';
 
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
+import { StructuredLLMExecutor } from '../../sdk/src/executors/structured-llm';
 import {
   LiteralSourceNode,
   ConsoleTerminalNode,
@@ -10,6 +12,7 @@ import {
   serializeStandAloneNode,
   executeDAG,
   defaultExecutorRegistry,
+  StructuredLLMTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -26,10 +29,17 @@ async function main() {
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
+  defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
-  const standalone = new LiteralSourceNode('start', { value: 'Hi there' })
-    .pipe(new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-5' }))
+  const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
+    .pipe(
+      new StructuredLLMTransformerNode('llm', {
+        model: 'openai/gpt-5',
+        prompt: 'Generate 5 variants of the following query: ${input}',
+        schema: z.array(z.string()),
+      })
+    )
     .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);

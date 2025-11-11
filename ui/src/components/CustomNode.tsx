@@ -12,6 +12,11 @@ interface CustomNodeData {
     system?: string;
     prompt?: string;
   };
+  structuredLLMConfig?: {
+    model?: 'openai/gpt-5';
+    schema?: string; // JSON Schema as string
+    prompt?: string;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -19,12 +24,14 @@ interface CustomNodeData {
 const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: string }> = {
   [NodeType.LITERAL]: { bg: '#f3f4f6', border: '#6b7280', text: '#374151' },
   [NodeType.SIMPLE_LLM]: { bg: '#e0e7ff', border: '#6366f1', text: '#312e81' },
+  [NodeType.STRUCTURED_LLM]: { bg: '#fce7f3', border: '#ec4899', text: '#831843' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.LITERAL]: '📦',
   [NodeType.SIMPLE_LLM]: '🤖',
+  [NodeType.STRUCTURED_LLM]: '🎯',
   [NodeType.CONSOLE]: '📥',
 };
 

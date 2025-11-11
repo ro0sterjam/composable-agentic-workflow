@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NodeType } from '../types';
 import DataNodeEditor from './DataNodeEditor';
 import LLMNodeEditor from './LLMNodeEditor';
+import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -11,6 +12,11 @@ interface NodeEditorProps {
   currentLLMConfig?: {
     model?: 'openai/gpt-5';
     system?: string;
+    prompt?: string;
+  };
+  currentStructuredLLMConfig?: {
+    model?: 'openai/gpt-5';
+    schema?: string;
     prompt?: string;
   };
   onSave: (config: NodeConfig) => void;
@@ -25,6 +31,11 @@ export interface NodeConfig {
     system?: string;
     prompt?: string;
   };
+  structuredLLMConfig?: {
+    model?: 'openai/gpt-5';
+    schema?: string;
+    prompt?: string;
+  };
 }
 
 function NodeEditor({
@@ -33,6 +44,7 @@ function NodeEditor({
   currentLabel,
   currentValue,
   currentLLMConfig,
+  currentStructuredLLMConfig,
   onSave,
   onClose,
 }: NodeEditorProps) {
@@ -84,6 +96,22 @@ function NodeEditor({
         currentConfig={currentLLMConfig}
         onSave={(label, config) => {
           onSave({ label, llmConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for STRUCTURED_LLM nodes
+  if (nodeType === NodeType.STRUCTURED_LLM) {
+    return (
+      <StructuredLLMNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentStructuredLLMConfig}
+        onSave={(label, config) => {
+          onSave({ label, structuredLLMConfig: config });
           onClose();
         }}
         onClose={onClose}

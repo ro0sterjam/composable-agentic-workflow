@@ -19,5 +19,5 @@ export const DEFAULT_NODE_TYPES = {
 } as const;
 
 // Re-export node implementations
-export { LiteralSourceNode, ConsoleTerminalNode, SimpleLLMTransformerNode } from './nodes';
-export type { SimpleLLMTransformerNodeConfig } from './nodes';
+export { LiteralSourceNode, ConsoleTerminalNode, SimpleLLMTransformerNode, StructuredLLMTransformerNode } from './nodes';
+export type { SimpleLLMTransformerNodeConfig, StructuredLLMTransformerNodeConfig, JSONSchema } from './nodes';
