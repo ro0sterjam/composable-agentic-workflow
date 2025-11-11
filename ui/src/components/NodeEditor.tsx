@@ -43,6 +43,7 @@ export interface NodeConfig {
   };
   mapConfig?: {
     transformerId?: string;
+    transformerLabel?: string;
     parallel?: boolean;
   };
 }
@@ -130,13 +131,17 @@ function NodeEditor({
     );
   }
 
-  // Special editor for MAP nodes - just label and parallel toggle
+  // Special editor for MAP nodes
   if (nodeType === NodeType.MAP) {
     const [parallel, setParallel] = useState(currentMapConfig?.parallel ?? true);
+    const [transformerId, setTransformerId] = useState(currentMapConfig?.transformerId || '');
 
     useEffect(() => {
       setParallel(currentMapConfig?.parallel ?? true);
+      setTransformerId(currentMapConfig?.transformerId || '');
     }, [currentMapConfig]);
+
+    const selectedTransformer = availableTransformers.find((t) => t.id === transformerId);
 
     return (
       <>
@@ -197,6 +202,43 @@ function NodeEditor({
             </div>
 
             <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+                Transformer Node
+              </label>
+              {availableTransformers.length > 0 ? (
+                <select
+                  value={transformerId}
+                  onChange={(e) => setTransformerId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#3a3a3a',
+                    border: '1px solid #4a4a4a',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '14px',
+                  }}
+                >
+                  <option value="">Select a transformer...</option>
+                  {availableTransformers.map((transformer) => (
+                    <option key={transformer.id} value={transformer.id}>
+                      {transformer.label} ({transformer.type})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ padding: '12px', background: '#1a1a1a', borderRadius: '6px', color: '#6b7280', fontSize: '12px' }}>
+                  No transformer nodes available. Add a Simple LLM, Structured LLM, or Peek node to the graph first.
+                </div>
+              )}
+              {selectedTransformer && (
+                <div style={{ marginTop: '8px', padding: '8px', background: '#1a1a1a', borderRadius: '6px', fontSize: '12px', color: '#38b2ac' }}>
+                  ✓ Selected: {selectedTransformer.label} ({selectedTransformer.type})
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
               <label
                 style={{
                   display: 'flex',
@@ -215,21 +257,6 @@ function NodeEditor({
                 />
                 <span>Run in parallel</span>
               </label>
-            </div>
-
-            <div style={{ marginBottom: '20px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-              <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
-                Transformer Configuration
-              </div>
-              <div style={{ color: '#6b7280', fontSize: '11px' }}>
-                Drag a transformer node (Simple LLM, Structured LLM, or Peek) directly onto this map node in the graph
-                to configure it.
-              </div>
-              {currentMapConfig?.transformerId && (
-                <div style={{ marginTop: '8px', color: '#38b2ac', fontSize: '12px' }}>
-                  ✓ Configured: {currentMapConfig.transformerId}
-                </div>
-              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -256,7 +283,15 @@ function NodeEditor({
               </button>
               <button
                 onClick={() => {
-                  onSave({ label, mapConfig: { ...currentMapConfig, parallel } });
+                  const selectedTransformer = availableTransformers.find((t) => t.id === transformerId);
+                  onSave({ 
+                    label, 
+                    mapConfig: { 
+                      transformerId, 
+                      transformerLabel: selectedTransformer?.label,
+                      parallel 
+                    } 
+                  });
                   onClose();
                 }}
                 style={{

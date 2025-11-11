@@ -21,10 +21,10 @@ export class PeekTransformerExecutor<InputType = unknown>
 
   async execute(
     input: InputType,
-    config: PeekTransformerNodeConfig,
+    config: PeekTransformerNodeConfig | undefined,
     _dagContext: DAGContext
   ): Promise<InputType> {
-    const logMessage = config.label ? `[${config.label}]` : '[Peek]';
+    const logMessage = config?.label ? `[${config.label}]` : '[Peek]';
     const message = `${logMessage} ${JSON.stringify(input, null, 2)}`;
 
     if (this.logFn) {

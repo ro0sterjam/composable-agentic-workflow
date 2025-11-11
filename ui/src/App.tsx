@@ -263,14 +263,6 @@ function App() {
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
-      // Check if this is a map transformer drop (has application/node-id data)
-      // If so, let MapDropZone handle it - don't prevent default here
-      const draggedNodeId = event.dataTransfer.getData('application/node-id');
-      if (draggedNodeId) {
-        // This is a map transformer drop, let MapDropZone handle it
-        return;
-      }
-
       event.preventDefault();
 
       const type = event.dataTransfer.getData('application/reactflow') as NodeType;
@@ -592,64 +584,7 @@ function App() {
         console.error('Error loading saved state:', error);
       }
     }
-
-    // Listen for map transformer drop events
-    const handleMapTransformerDrop = (event: Event) => {
-      console.log('handleMapTransformerDrop called:', event);
-      const customEvent = event as CustomEvent<{ mapNodeId: string; transformerNodeId: string }>;
-      const { mapNodeId, transformerNodeId } = customEvent.detail;
-      console.log('Processing drop:', { mapNodeId, transformerNodeId });
-
-      // Use functional update to access current nodes state
-      setNodes((currentNodes) => {
-        // Verify the transformer node exists and is a valid transformer type
-        const transformerNode = currentNodes.find((n) => n.id === transformerNodeId);
-        if (!transformerNode) {
-          console.log('Transformer node not found:', transformerNodeId);
-          return currentNodes;
-        }
-
-        const transformerNodeType = transformerNode.data.nodeType as NodeType;
-        const validTransformerTypes: NodeType[] = [
-          NodeType.SIMPLE_LLM,
-          NodeType.STRUCTURED_LLM,
-          NodeType.PEEK,
-        ];
-        if (!validTransformerTypes.includes(transformerNodeType)) {
-          console.log('Invalid transformer type:', transformerNodeType);
-          return currentNodes;
-        }
-
-        console.log('Updating map node config');
-        // Update the map node's config
-        return currentNodes.map((node) =>
-          node.id === mapNodeId
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  mapConfig: {
-                    ...(node.data.mapConfig || {}),
-                    transformerId: transformerNodeId,
-                    parallel: node.data.mapConfig?.parallel ?? true,
-                  },
-                },
-              }
-            : node
-        );
-      });
-
-      // Save to history
-      setTimeout(() => saveToHistory(), 100);
-    };
-
-    window.addEventListener('mapTransformerDrop', handleMapTransformerDrop);
-
-    return () => {
-      window.removeEventListener('mapTransformerDrop', handleMapTransformerDrop);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveToHistory]); // Only depend on saveToHistory
+  }, []);
 
   return (
     <div className="app">

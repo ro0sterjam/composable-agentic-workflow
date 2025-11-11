@@ -67,7 +67,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
     }
   };
 
-  // Register executors with custom logging for console terminal
+  // Register executors with custom logging for console terminal and peek
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
   defaultExecutorRegistry.registerTerminal(
     'console',
@@ -79,7 +79,13 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   );
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
-  defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer(
+    'peek',
+    new PeekTransformerExecutor((message: string, _data: unknown) => {
+      // Send log through the app's logging system
+      sendLog('info', message);
+    })
+  );
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
 
   // Load DAG
@@ -135,7 +141,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
     const result = await executeDAG(serializedDAG, {
       onNodeComplete: (nodeId: string, nodeResult: NodeExecutionResult) => {
         const node = serializedDAG.nodes.find((n) => n.id === nodeId);
-        const nodeLabel = node?.label || nodeId;
+        const nodeLabel = node && 'label' in node && node.label ? node.label : nodeId;
 
         if (nodeResult.error) {
           sendLog('error', `Failed: ${nodeLabel} - ${nodeResult.error.message}`, nodeId);
@@ -143,7 +149,12 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
           sendLog('success', `Completed: ${nodeLabel}`, nodeId);
 
           // Check for console output
-          if (node?.type === 'console' && nodeResult.output !== undefined) {
+          if (
+            node &&
+            'type' in node &&
+            node.type === 'console' &&
+            nodeResult.output !== undefined
+          ) {
             sendLog('console', String(nodeResult.output), nodeId);
           }
         }
@@ -167,11 +178,8 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
       );
       for (const [nodeId, nodeResult] of failedNodes) {
         const node = serializedDAG.nodes.find((n) => n.id === nodeId);
-        sendLog(
-          'error',
-          `${node?.label || nodeId}: ${nodeResult.error?.message || 'Unknown error'}`,
-          nodeId
-        );
+        const nodeLabel = node && 'label' in node && node.label ? node.label : nodeId;
+        sendLog('error', `${nodeLabel}: ${nodeResult.error?.message || 'Unknown error'}`, nodeId);
       }
       if (!onLog) {
         // Only exit if not being called from server (CLI mode)

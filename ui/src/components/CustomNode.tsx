@@ -1,7 +1,6 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeType } from '../types';
-import MapDropZone from './MapDropZone';
 
 interface CustomNodeData {
   label: string;
@@ -20,6 +19,7 @@ interface CustomNodeData {
   };
   mapConfig?: {
     transformerId?: string;
+    transformerLabel?: string; // Label of the transformer node for display
     parallel?: boolean;
   };
   onDoubleClick?: (nodeId: string) => void;
@@ -76,29 +76,6 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
     backgroundColor = '#d1fae5'; // Light green
   }
 
-  // Make transformer nodes draggable (for dragging into map nodes)
-  const transformerTypes: NodeType[] = [
-    NodeType.SIMPLE_LLM,
-    NodeType.STRUCTURED_LLM,
-    NodeType.PEEK,
-  ];
-  const isTransformer = transformerTypes.includes(nodeType);
-
-  const handleDragStart = (e: React.DragEvent) => {
-    // Only handle drag if it's from the drag handle or its children
-    // This allows normal ReactFlow dragging for the node, but special drag for the gear icon
-    if (isTransformer) {
-      const target = e.target as HTMLElement;
-      const dragHandle = target.closest('.transformer-drag-handle');
-      if (dragHandle) {
-        // Store the node ID for the drop handler
-        e.dataTransfer.setData('application/node-id', data.id);
-        e.dataTransfer.effectAllowed = 'copy';
-        // Stop propagation to prevent ReactFlow from dragging the node when dragging the gear icon
-        e.stopPropagation();
-      }
-    }
-  };
 
   return (
     <div
@@ -107,11 +84,11 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
         backgroundColor,
         borderColor,
         borderWidth: executionState === 'running' || executionState === 'failed' ? '3px' : '2px',
-        cursor: isTransformer ? 'grab' : 'pointer',
+        cursor: 'pointer',
         boxShadow: executionState === 'running' ? '0 0 10px rgba(59, 130, 246, 0.5)' : undefined,
       }}
       onDoubleClick={handleDoubleClick}
-      title={isTransformer ? 'Use gear icon to drag to map node or double-click to configure' : 'Double-click to configure'}
+      title="Double-click to configure"
     >
       <div className="node-header">
         <span>{icon}</span>
@@ -119,60 +96,24 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
         <span className="node-type-badge" style={{ backgroundColor: colors.border, color: 'white' }}>
           {nodeType}
         </span>
-        {isTransformer && (
-          <span
-            className="transformer-drag-handle"
-            draggable
-            onDragStart={handleDragStart}
-            style={{
-              marginLeft: 'auto',
-              cursor: 'grab',
-              fontSize: '14px',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              background: 'rgba(59, 130, 246, 0.1)',
-              color: '#3b82f6',
-              userSelect: 'none',
-            }}
-            title="Drag to map node to configure"
-          >
-            ⚙️
-          </span>
-        )}
       </div>
       
       {nodeType !== NodeType.LITERAL && (
-        <>
-          <Handle
-            type="target"
-            position={Position.Left}
-            id="input"
-            style={{ background: colors.border }}
-          />
-          <div className="node-ports">
-            <div className="port">
-              <div className="port-handle input" />
-              <span className="port-label">Input</span>
-            </div>
-          </div>
-        </>
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="input"
+          style={{ background: colors.border }}
+        />
       )}
       
       {nodeType !== NodeType.CONSOLE && (
-        <>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="output"
-            style={{ background: colors.border }}
-          />
-          <div className="node-ports">
-            <div className="port">
-              <span className="port-label">Output</span>
-              <div className="port-handle output" />
-            </div>
-          </div>
-        </>
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="output"
+          style={{ background: colors.border }}
+        />
       )}
       
       <div className="node-ports">
@@ -183,7 +124,72 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             </span>
           </div>
         )}
-        {nodeType === NodeType.MAP && <MapDropZone mapNodeId={data.id} mapConfig={data.mapConfig} />}
+        {nodeType === NodeType.SIMPLE_LLM && data.llmConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.llmConfig.model && (
+              <div style={{ marginBottom: '4px' }}>
+                Model: {data.llmConfig.model}
+              </div>
+            )}
+            {data.llmConfig.prompt && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Prompt: {data.llmConfig.prompt.length > 40 ? `${data.llmConfig.prompt.substring(0, 40)}...` : data.llmConfig.prompt}
+              </div>
+            )}
+            {data.llmConfig.system && (
+              <div style={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic' }}>
+                System: {data.llmConfig.system.length > 30 ? `${data.llmConfig.system.substring(0, 30)}...` : data.llmConfig.system}
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.STRUCTURED_LLM && data.structuredLLMConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.structuredLLMConfig.model && (
+              <div style={{ marginBottom: '4px' }}>
+                Model: {data.structuredLLMConfig.model}
+              </div>
+            )}
+            {data.structuredLLMConfig.schema && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
+                Schema: {(() => {
+                  try {
+                    const schema = JSON.parse(data.structuredLLMConfig.schema!);
+                    if (schema.type === 'array') {
+                      return `Array${schema.items ? ` of ${schema.items.type || 'any'}` : ''}`;
+                    }
+                    return schema.type || 'Object';
+                  } catch {
+                    return 'Custom';
+                  }
+                })()}
+              </div>
+            )}
+            {data.structuredLLMConfig.prompt && (
+              <div style={{ fontSize: '10px', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Prompt: {data.structuredLLMConfig.prompt.length > 40 ? `${data.structuredLLMConfig.prompt.substring(0, 40)}...` : data.structuredLLMConfig.prompt}
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.MAP && data.mapConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.mapConfig.transformerId ? (
+              <>
+                <div style={{ marginBottom: '4px' }}>
+                  Transformer: {data.mapConfig.transformerLabel || data.mapConfig.transformerId}
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                  {data.mapConfig.parallel ? '⚡ Parallel' : '➡️ Sequential'}
+                </div>
+              </>
+            ) : (
+              <div style={{ opacity: 0.6, fontStyle: 'italic' }}>
+                No transformer selected
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

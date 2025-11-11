@@ -233,23 +233,23 @@ async function executeNode(
 
   if (sourceExecutor) {
     // Source node - no input needed
-    return await Promise.resolve(sourceExecutor.execute(node.config, dagContext));
+    return await Promise.resolve(sourceExecutor.execute(node.config || {}, dagContext));
   } else if (transformerExecutor) {
     // Transformer node - needs input
     if (input === undefined) {
       throw new Error(`Transformer node ${node.id} requires input but none was provided`);
     }
-    return await Promise.resolve(transformerExecutor.execute(input, node.config, dagContext));
+    return await Promise.resolve(transformerExecutor.execute(input, node.config || {}, dagContext));
   } else if (terminalExecutor) {
     // Terminal node - needs input, no output
     if (input === undefined) {
       throw new Error(`Terminal node ${node.id} requires input but none was provided`);
     }
-    await Promise.resolve(terminalExecutor.execute(input, node.config, dagContext));
+    await Promise.resolve(terminalExecutor.execute(input, node.config || {}, dagContext));
     return undefined; // Terminal nodes don't produce output
   } else if (standaloneExecutor) {
     // Standalone node - no input, no output
-    await Promise.resolve(standaloneExecutor.execute(node.config, dagContext));
+    await Promise.resolve(standaloneExecutor.execute(node.config || {}, dagContext));
     return undefined; // Standalone nodes don't produce output
   } else {
     throw new Error(
