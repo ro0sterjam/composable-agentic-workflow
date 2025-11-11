@@ -1,4 +1,4 @@
-import type { TerminalExecutor } from './registry';
+import type { TerminalExecutor, DAGContext } from './registry';
 
 /**
  * Console terminal executor - logs the input using a provided logging function
@@ -10,7 +10,7 @@ export class ConsoleTerminalExecutor<InputType> implements TerminalExecutor<Inpu
     this.logFn = logFn || ((message: string, data: InputType) => console.log(message, data));
   }
 
-  execute(input: InputType, _config: undefined): void {
+  execute(input: InputType, _config: undefined, _dagContext: DAGContext): void {
     this.logFn('ConsoleTerminal:', input);
   }
 }

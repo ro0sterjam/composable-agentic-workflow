@@ -17,6 +17,8 @@ import dotenv from 'dotenv';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm.js';
+import { MapTransformerExecutor } from '../../sdk/src/executors/map.js';
+import { PeekTransformerExecutor } from '../../sdk/src/executors/peek.js';
 import { StructuredLLMExecutor } from '../../sdk/src/executors/structured-llm.js';
 import {
   executeDAG,
@@ -77,6 +79,8 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   );
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
+  defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
 
   // Load DAG
   let serializedDAG: SerializedDAG;

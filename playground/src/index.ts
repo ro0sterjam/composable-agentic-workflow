@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
+import { MapTransformerExecutor } from '../../sdk/src/executors/map';
+import { PeekTransformerExecutor } from '../../sdk/src/executors/peek';
 import { StructuredLLMExecutor } from '../../sdk/src/executors/structured-llm';
 import {
   LiteralSourceNode,
@@ -13,6 +15,8 @@ import {
   executeDAG,
   defaultExecutorRegistry,
   StructuredLLMTransformerNode,
+  MapTransformerNode,
+  PeekTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -30,6 +34,8 @@ async function main() {
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
+  defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
   const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
@@ -40,6 +46,7 @@ async function main() {
         schema: z.array(z.string()),
       })
     )
+    .pipe(new MapTransformerNode('map', new PeekTransformerNode('peek')))
     .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);

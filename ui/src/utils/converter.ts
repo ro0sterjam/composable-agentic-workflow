@@ -42,14 +42,23 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
         config.model = 'openai/gpt-5';
         config.schema = {};
       }
+    } else if (nodeType === 'map') {
+      if (node.data.mapConfig) {
+        config.parallel = node.data.mapConfig.parallel ?? true;
+        if (node.data.mapConfig.transformerId) {
+          config.transformerId = node.data.mapConfig.transformerId;
+        }
+      } else {
+        config.parallel = true;
+      }
     }
 
-    return {
+  return {
       id: node.id,
       type: nodeType,
       label: node.data.label || node.id,
       ...(Object.keys(config).length > 0 && { config }),
-    };
+  };
   });
 
   const serializedEdges: SerializedEdge[] = edges.map((edge) => ({

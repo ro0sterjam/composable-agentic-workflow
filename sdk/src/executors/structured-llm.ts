@@ -3,7 +3,7 @@ import { generateObject, jsonSchema } from 'ai';
 
 import type { JSONSchema } from '../nodes/impl/structured-llm';
 
-import type { TransformerExecutor } from './registry';
+import type { TransformerExecutor, DAGContext } from './registry';
 
 /**
  * Internal config type that the executor receives (with JSON Schema)
@@ -22,7 +22,8 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
 {
   async execute(
     input: InputType,
-    config: StructuredLLMTransformerNodeExecutorConfig
+    config: StructuredLLMTransformerNodeExecutorConfig,
+    _dagContext: DAGContext
   ): Promise<OutputType> {
     // Interpolate input into prompt
     const prompt = config.prompt?.replace(/\$\{input\}/g, String(input)) || String(input);

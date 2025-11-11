@@ -9,6 +9,8 @@ export const NODE_TYPES = {
   CONSOLE: 'console',
   SIMPLE_LLM: 'simple_llm',
   STRUCTURED_LLM: 'structured_llm',
+  MAP: 'map',
+  PEEK: 'peek',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc

@@ -3,7 +3,7 @@ import { generateText } from 'ai';
 
 import type { SimpleLLMTransformerNodeConfig } from '../nodes/impl/llm';
 
-import type { TransformerExecutor } from './registry';
+import type { TransformerExecutor, DAGContext } from './registry';
 
 /**
  * Simple LLM transformer executor - executes LLM transformer nodes
@@ -11,7 +11,11 @@ import type { TransformerExecutor } from './registry';
 export class SimpleLLMExecutor<InputType = string, OutputType = string>
   implements TransformerExecutor<InputType, OutputType, SimpleLLMTransformerNodeConfig>
 {
-  async execute(input: InputType, config: SimpleLLMTransformerNodeConfig): Promise<OutputType> {
+  async execute(
+    input: InputType,
+    config: SimpleLLMTransformerNodeConfig,
+    _dagContext: DAGContext
+  ): Promise<OutputType> {
     // Interpolate input into prompt
     const prompt = config.prompt?.replace(/\$\{input\}/g, String(input)) || String(input);
 

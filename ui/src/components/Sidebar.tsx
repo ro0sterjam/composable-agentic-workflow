@@ -9,6 +9,8 @@ const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦', description: 'Literal value (no input)' },
   { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖', description: 'Transform input using LLM' },
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯', description: 'Generate structured output using LLM' },
+  { type: NodeType.MAP, label: 'Map', icon: '🗺️', description: 'Apply transformer to array elements' },
+  { type: NodeType.PEEK, label: 'Peek', icon: '👁️', description: 'Log input and forward unchanged' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥', description: 'Logs input to console' },
 ];
 

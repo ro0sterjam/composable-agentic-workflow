@@ -1,5 +1,5 @@
 import { defaultExecutorRegistry } from '../executors/registry';
-import type { ExecutorRegistry } from '../executors/registry';
+import type { ExecutorRegistry, DAGContext } from '../executors/registry';
 
 import type { SerializedDAG, SerializedNode, SerializedEdge } from './serializer';
 
@@ -64,11 +64,16 @@ export async function executeDAG(
     inDegree.set(to, (inDegree.get(to) || 0) + 1);
   }
 
-  // Find entry nodes (nodes with in-degree 0)
+  // Find entry nodes - only source nodes (nodes with in-degree 0 AND have a source executor)
   const queue: string[] = [];
   for (const [nodeId, degree] of inDegree.entries()) {
     if (degree === 0) {
-      queue.push(nodeId);
+      const node = nodes.get(nodeId)!;
+      // Only add to queue if it's a source node (has a source executor)
+      const sourceExecutor = executorRegistry.getSource(node.type);
+      if (sourceExecutor) {
+        queue.push(nodeId);
+      }
     }
   }
 
@@ -86,7 +91,7 @@ export async function executeDAG(
       const input = getNodeInput(nodeId, dag.edges, nodeOutputs);
 
       // Execute the node
-      const output = await executeNode(node, input, executorRegistry);
+      const output = await executeNode(node, input, executorRegistry, dag);
 
       // Store output
       nodeOutputs.set(nodeId, output);
@@ -131,23 +136,54 @@ export async function executeDAG(
     }
   }
 
-  // Check if all nodes were executed
-  const allExecuted = results.size === nodes.size;
-  if (!allExecuted) {
-    // Some nodes couldn't be reached (cycle or disconnected)
-    for (const nodeId of nodes.keys()) {
-      if (!results.has(nodeId)) {
-        results.set(nodeId, {
-          nodeId,
-          error: new Error('Node was not executed (possibly part of a cycle or disconnected)'),
-        });
+  // Collect all node IDs that are referenced by other nodes (e.g., transformerId in map nodes)
+  const referencedNodeIds = new Set<string>();
+  for (const node of dag.nodes) {
+    const config = node.config as Record<string, unknown> | undefined;
+    if (config && typeof config === 'object') {
+      // Check for transformerId in map nodes
+      if (node.type === 'map' && 'transformerId' in config) {
+        const transformerId = config.transformerId;
+        if (typeof transformerId === 'string') {
+          referencedNodeIds.add(transformerId);
+        }
       }
+      // Add other node reference patterns here as needed
+    }
+  }
+
+  // Check if all nodes were executed
+  // Referenced nodes (e.g., transformerId in map nodes) are executed by their parent nodes,
+  // so they don't need to be in the results map to be considered "executed"
+  const directlyExecutedNodeIds = new Set(results.keys());
+  const allDirectlyExecutedNodes =
+    directlyExecutedNodeIds.size + referencedNodeIds.size >= nodes.size;
+
+  // Check for nodes that should have been executed but weren't
+  for (const nodeId of nodes.keys()) {
+    if (!results.has(nodeId) && !referencedNodeIds.has(nodeId)) {
+      const node = nodes.get(nodeId)!;
+      const inDegreeValue = inDegree.get(nodeId) || 0;
+      const sourceExecutor = executorRegistry.getSource(node.type);
+
+      // If this is a source node that wasn't executed, it means there was an issue
+      // Otherwise, it's a node that wasn't reachable from any source
+      const errorMessage = sourceExecutor
+        ? 'Source node was not executed (possibly disconnected from execution flow)'
+        : inDegreeValue > 0
+          ? 'Node was not executed (not reachable from any source node)'
+          : 'Node was not executed (not a source node and has no incoming edges)';
+
+      results.set(nodeId, {
+        nodeId,
+        error: new Error(errorMessage),
+      });
     }
   }
 
   return {
     results,
-    success: allExecuted && Array.from(results.values()).every((r) => !r.error),
+    success: allDirectlyExecutedNodes && Array.from(results.values()).every((r) => !r.error),
   };
 }
 
@@ -183,9 +219,11 @@ function getNodeInput(
 async function executeNode(
   node: SerializedNode,
   input: unknown,
-  executorRegistry: ExecutorRegistry
+  executorRegistry: ExecutorRegistry,
+  dag: SerializedDAG
 ): Promise<unknown> {
   const nodeType = node.type;
+  const dagContext: DAGContext = { dag, executorRegistry };
 
   // Try to find an executor for this node type
   const sourceExecutor = executorRegistry.getSource(nodeType);
@@ -195,23 +233,23 @@ async function executeNode(
 
   if (sourceExecutor) {
     // Source node - no input needed
-    return await Promise.resolve(sourceExecutor.execute(node.config));
+    return await Promise.resolve(sourceExecutor.execute(node.config, dagContext));
   } else if (transformerExecutor) {
     // Transformer node - needs input
     if (input === undefined) {
       throw new Error(`Transformer node ${node.id} requires input but none was provided`);
     }
-    return await Promise.resolve(transformerExecutor.execute(input, node.config));
+    return await Promise.resolve(transformerExecutor.execute(input, node.config, dagContext));
   } else if (terminalExecutor) {
     // Terminal node - needs input, no output
     if (input === undefined) {
       throw new Error(`Terminal node ${node.id} requires input but none was provided`);
     }
-    await Promise.resolve(terminalExecutor.execute(input, node.config));
+    await Promise.resolve(terminalExecutor.execute(input, node.config, dagContext));
     return undefined; // Terminal nodes don't produce output
   } else if (standaloneExecutor) {
     // Standalone node - no input, no output
-    await Promise.resolve(standaloneExecutor.execute(node.config));
+    await Promise.resolve(standaloneExecutor.execute(node.config, dagContext));
     return undefined; // Standalone nodes don't produce output
   } else {
     throw new Error(

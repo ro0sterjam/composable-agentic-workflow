@@ -11,6 +11,8 @@ const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦' },
   { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖' },
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯' },
+  { type: NodeType.MAP, label: 'Map', icon: '🗺️' },
+  { type: NodeType.PEEK, label: 'Peek', icon: '👁️' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },
 ];
 

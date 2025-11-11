@@ -1,29 +1,43 @@
+import type { SerializedDAG } from '../dag/serializer';
+
+/**
+ * DAG context passed to executors
+ */
+export interface DAGContext {
+  dag: SerializedDAG;
+  executorRegistry: ExecutorRegistry;
+}
+
 /**
  * Transformer node executor - executes transformer nodes
  */
 export interface TransformerExecutor<InputType, OutputType, ConfigType> {
-  execute(input: InputType, config: ConfigType): Promise<OutputType> | OutputType;
+  execute(
+    input: InputType,
+    config: ConfigType,
+    dagContext: DAGContext
+  ): Promise<OutputType> | OutputType;
 }
 
 /**
  * Source node executor - executes source nodes
  */
 export interface SourceExecutor<OutputType, ConfigType> {
-  execute(config: ConfigType): Promise<OutputType> | OutputType;
+  execute(config: ConfigType, dagContext: DAGContext): Promise<OutputType> | OutputType;
 }
 
 /**
  * Terminal node executor - executes terminal nodes
  */
 export interface TerminalExecutor<InputType, ConfigType> {
-  execute(input: InputType, config: ConfigType): Promise<void> | void;
+  execute(input: InputType, config: ConfigType, dagContext: DAGContext): Promise<void> | void;
 }
 
 /**
  * Standalone node executor - executes standalone nodes
  */
 export interface StandAloneExecutor<ConfigType> {
-  execute(config: ConfigType): Promise<void> | void;
+  execute(config: ConfigType, dagContext: DAGContext): Promise<void> | void;
 }
 
 /**

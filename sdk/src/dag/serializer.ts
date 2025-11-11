@@ -82,12 +82,12 @@ function extractNodesAndEdges(
       // Recursively extract the first and second nodes (they might be nested sequential nodes)
       extractNodesAndEdges(seqNode.first, state);
       extractNodesAndEdges(seqNode.second, state);
-      
+
       // Find the actual output node from first (could be nested)
       const firstOutputId = getOutputNodeId(seqNode.first);
       // Find the actual input node from second (could be nested)
       const secondInputId = getInputNodeId(seqNode.second);
-      
+
       // Create edge from first's output to second's input
       state.edges.push({
         from: firstOutputId,
@@ -102,7 +102,7 @@ function extractNodesAndEdges(
       // Recursively extract the transformer (which might be a SequentialTransformerNode)
       extractNodesAndEdges(seqNode.transformer, state);
       extractNodesAndEdges(seqNode.terminal, state);
-      
+
       // Find the actual output node from the transformer (could be nested)
       const transformerOutputId = getOutputNodeId(seqNode.transformer);
       state.edges.push({
@@ -118,12 +118,12 @@ function extractNodesAndEdges(
       // Recursively extract the source and transformer (they might be nested sequential nodes)
       extractNodesAndEdges(seqNode.source, state);
       extractNodesAndEdges(seqNode.transformer, state);
-      
+
       // Find the actual output node from source (could be nested)
       const sourceOutputId = getOutputNodeId(seqNode.source);
       // Find the actual input node from transformer (could be nested)
       const transformerInputId = getInputNodeId(seqNode.transformer);
-      
+
       // Create edge from source's output to transformer's input
       state.edges.push({
         from: sourceOutputId,
@@ -138,7 +138,7 @@ function extractNodesAndEdges(
       // Recursively extract the source (which might be a SequentialSourceNode)
       extractNodesAndEdges(seqNode.source, state);
       extractNodesAndEdges(seqNode.terminal, state);
-      
+
       // Find the actual output node from the source (could be nested)
       const sourceOutputId = getOutputNodeId(seqNode.source);
       state.edges.push({
@@ -146,6 +146,17 @@ function extractNodesAndEdges(
         to: seqNode.terminal.id,
       });
       return;
+    }
+  }
+
+  // Special handling for map nodes - need to serialize the nested transformer
+  if (nodeType === 'map') {
+    const mapNode = node as any;
+    if (mapNode.transformer) {
+      // Recursively extract the transformer node (so it's added to the nodes array)
+      // This will flatten sequential nodes and extract all nested nodes
+      extractNodesAndEdges(mapNode.transformer, state);
+      // The transformerId is already in the config from the MapTransformerNode constructor
     }
   }
 
@@ -172,7 +183,7 @@ function getOutputNodeId(
   node: SourceNode<any, any> | TerminalNode<any, any> | TransformerNode<any, any, any>
 ): string {
   const nodeType = node.type;
-  
+
   if (nodeType === 'sequential') {
     // SequentialTransformerNode - get output from second node
     const seqNode = node as any;
@@ -198,7 +209,7 @@ function getOutputNodeId(
       return getOutputNodeId(seqNode.source);
     }
   }
-  
+
   // Regular node - return its ID
   return node.id;
 }
@@ -210,7 +221,7 @@ function getInputNodeId(
   node: SourceNode<any, any> | TerminalNode<any, any> | TransformerNode<any, any, any>
 ): string {
   const nodeType = node.type;
-  
+
   if (nodeType === 'sequential') {
     // SequentialTransformerNode - get input from first node
     const seqNode = node as any;
@@ -236,7 +247,7 @@ function getInputNodeId(
       return getInputNodeId(seqNode.source);
     }
   }
-  
+
   // Regular node - return its ID
   return node.id;
 }
