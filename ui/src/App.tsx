@@ -200,6 +200,7 @@ function App() {
   }, []);
 
   const onConnectStart: OnConnectStart = useCallback((event, { nodeId, handleId }) => {
+    // Only allow connections from output handles, not from bottom handles (transformer connections)
     if (handleId === 'output' && nodeId) {
       connectionMadeRef.current = false;
       isDraggingConnectionRef.current = true;
@@ -212,6 +213,7 @@ function App() {
       // Don't show menu during drag - only after release
       setMenuPosition(null);
     }
+    // Ignore connections from bottom/top handles (they're visual only)
   }, []);
 
   const onConnectEnd: OnConnectEnd = useCallback(
@@ -239,6 +241,11 @@ function App() {
 
   const onConnect = useCallback(
     (params: Connection) => {
+      // Prevent connections from/to transformer handles (bottom/top handles)
+      if (params.sourceHandle === 'bottom' || params.targetHandle === 'top') {
+        return;
+      }
+      
       connectionMadeRef.current = true;
       setEdges((eds) => addEdge(params, eds));
       setConnectionStart(null);
@@ -606,6 +613,70 @@ function App() {
     }
   }, []);
 
+  // Generate virtual edges from Map/FlatMap nodes to their transformer nodes
+  const transformerEdges = React.useMemo(() => {
+    const virtualEdges: Edge[] = [];
+    
+    for (const node of nodes) {
+      const nodeType = node.data.nodeType as NodeType;
+      
+      // Check if this is a Map node with a transformer
+      if (nodeType === NodeType.MAP && node.data.mapConfig?.transformerId) {
+        const transformerId = node.data.mapConfig.transformerId;
+        const transformerNode = nodes.find((n) => n.id === transformerId);
+        
+        if (transformerNode) {
+          virtualEdges.push({
+            id: `transformer-edge-${node.id}-${transformerId}`,
+            source: node.id,
+            target: transformerId,
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+            style: {
+              stroke: '#8b5cf6',
+              strokeWidth: 2,
+              strokeDasharray: '5,5',
+              opacity: 0.6,
+            },
+            type: 'smoothstep',
+            animated: false,
+          });
+        }
+      }
+      
+      // Check if this is a FlatMap node with a transformer
+      if (nodeType === NodeType.FLATMAP && node.data.flatmapConfig?.transformerId) {
+        const transformerId = node.data.flatmapConfig.transformerId;
+        const transformerNode = nodes.find((n) => n.id === transformerId);
+        
+        if (transformerNode) {
+          virtualEdges.push({
+            id: `transformer-edge-${node.id}-${transformerId}`,
+            source: node.id,
+            target: transformerId,
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+            style: {
+              stroke: '#8b5cf6',
+              strokeWidth: 2,
+              strokeDasharray: '5,5',
+              opacity: 0.6,
+            },
+            type: 'smoothstep',
+            animated: false,
+          });
+        }
+      }
+    }
+    
+    return virtualEdges;
+  }, [nodes]);
+
+  // Combine regular edges with virtual transformer edges
+  const allEdges = React.useMemo(() => {
+    return [...edges, ...transformerEdges];
+  }, [edges, transformerEdges]);
+
   return (
     <div className="app">
       <div className="toolbar">
@@ -639,7 +710,7 @@ function App() {
                 onDoubleClick: onNodeEdit,
               },
             }))}
-            edges={edges}
+            edges={allEdges}
             onNodesChange={(changes) => {
               onNodesChange(changes);
               // Save to history on node deletion or significant changes
@@ -654,16 +725,27 @@ function App() {
               }
             }}
             onEdgesChange={(changes) => {
-              onEdgesChange(changes);
-              // Save to history on edge deletion
-              const hasDeletion = changes.some((change) => change.type === 'remove');
-              if (hasDeletion) {
-                if (saveHistoryTimeoutRef.current) {
-                  clearTimeout(saveHistoryTimeoutRef.current);
+              // Filter out changes to virtual transformer edges (they're read-only)
+              const filteredChanges = changes.filter((change) => {
+                if (change.type === 'remove') {
+                  const edgeId = 'id' in change ? change.id : undefined;
+                  return edgeId && !edgeId.startsWith('transformer-edge-');
                 }
-                saveHistoryTimeoutRef.current = setTimeout(() => {
-                  saveToHistory();
-                }, 300);
+                return true;
+              });
+              
+              if (filteredChanges.length > 0) {
+                onEdgesChange(filteredChanges);
+                // Save to history on edge deletion
+                const hasDeletion = filteredChanges.some((change) => change.type === 'remove');
+                if (hasDeletion) {
+                  if (saveHistoryTimeoutRef.current) {
+                    clearTimeout(saveHistoryTimeoutRef.current);
+                  }
+                  saveHistoryTimeoutRef.current = setTimeout(() => {
+                    saveToHistory();
+                  }, 300);
+                }
               }
             }}
             onConnect={onConnect}

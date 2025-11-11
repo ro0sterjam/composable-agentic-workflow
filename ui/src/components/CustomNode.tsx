@@ -163,6 +163,46 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           style={{ background: colors.border }}
         />
       )}
+
+      {/* Bottom handle for Map/FlatMap nodes to connect to their transformer (visual only, not connectable) */}
+      {(nodeType === NodeType.MAP || nodeType === NodeType.FLATMAP) && 
+       ((nodeType === NodeType.MAP && data.mapConfig?.transformerId) ||
+        (nodeType === NodeType.FLATMAP && data.flatmapConfig?.transformerId)) && (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="bottom"
+          isConnectable={false}
+          style={{ 
+            background: '#8b5cf6',
+            border: '2px solid #8b5cf6',
+            width: '10px',
+            height: '10px',
+            cursor: 'default',
+          }}
+        />
+      )}
+
+      {/* Top handle for transformer nodes that can be used by Map/FlatMap (visual only, not connectable) */}
+      {(nodeType === NodeType.SIMPLE_LLM ||
+        nodeType === NodeType.STRUCTURED_LLM ||
+        nodeType === NodeType.EXA_SEARCH ||
+        nodeType === NodeType.PEEK ||
+        nodeType === NodeType.EXTRACT) && (
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="top"
+          isConnectable={false}
+          style={{ 
+            background: '#8b5cf6',
+            border: '2px solid #8b5cf6',
+            width: '10px',
+            height: '10px',
+            cursor: 'default',
+          }}
+        />
+      )}
       
       <div className="node-ports">
         {nodeType === NodeType.LITERAL && (
