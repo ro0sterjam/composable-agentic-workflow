@@ -12,6 +12,7 @@ const nodeTypes = [
   { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍', description: 'Search the web using Exa API' },
   { type: NodeType.DEDUPE, label: 'Dedupe', icon: '🔀', description: 'Remove duplicates from array' },
   { type: NodeType.CACHE, label: 'Cache', icon: '💾', description: 'Cache input in DAG context' },
+  { type: NodeType.EXTRACT, label: 'Extract', icon: '📤', description: 'Extract property from input' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️', description: 'Apply transformer to array elements' },
   { type: NodeType.FLATMAP, label: 'FlatMap', icon: '📋', description: 'Apply transformer and flatten results' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️', description: 'Log input and forward unchanged' },

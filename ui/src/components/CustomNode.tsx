@@ -52,6 +52,9 @@ interface CustomNodeData {
   cacheConfig?: {
     property: string;
   };
+  extractConfig?: {
+    property: string;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -67,6 +70,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.EXA_SEARCH]: { bg: '#fef3f4', border: '#f87171', text: '#991b1b' },
   [NodeType.DEDUPE]: { bg: '#f5f3ff', border: '#a78bfa', text: '#5b21b6' },
   [NodeType.CACHE]: { bg: '#ecfdf5', border: '#10b981', text: '#065f46' },
+  [NodeType.EXTRACT]: { bg: '#fff7ed', border: '#f97316', text: '#9a3412' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -80,6 +84,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.EXA_SEARCH]: '🔍',
   [NodeType.DEDUPE]: '🔀',
   [NodeType.CACHE]: '💾',
+  [NodeType.EXTRACT]: '📤',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -294,6 +299,15 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             {data.cacheConfig.property && (
               <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
                 Property: {data.cacheConfig.property}
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.EXTRACT && data.extractConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.extractConfig.property && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
+                Property: {data.extractConfig.property}
               </div>
             )}
           </div>

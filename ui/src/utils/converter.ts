@@ -98,6 +98,12 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         throw new Error(`Cache node ${node.id} requires a property path`);
       }
+    } else if (nodeType === 'extract') {
+      if (node.data.extractConfig?.property) {
+        config.property = node.data.extractConfig.property;
+      } else {
+        throw new Error(`Extract node ${node.id} requires a property path`);
+      }
     }
 
   return {

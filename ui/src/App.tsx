@@ -551,6 +551,9 @@ function App() {
                   ...(config.cacheConfig !== undefined && {
                     cacheConfig: config.cacheConfig,
                   }),
+                  ...(config.extractConfig !== undefined && {
+                    extractConfig: config.extractConfig,
+                  }),
                 },
               }
             : node
@@ -701,6 +704,7 @@ function App() {
             const currentExaSearchConfig = node.data.exaSearchConfig;
             const currentDedupeConfig = node.data.dedupeConfig;
             const currentCacheConfig = node.data.cacheConfig;
+            const currentExtractConfig = node.data.extractConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
 
@@ -710,6 +714,7 @@ function App() {
               NodeType.STRUCTURED_LLM,
               NodeType.EXA_SEARCH,
               NodeType.PEEK,
+              NodeType.EXTRACT,
             ];
             const availableTransformers = nodes
               .filter((n) => {
@@ -733,6 +738,7 @@ function App() {
                 currentExaSearchConfig={currentExaSearchConfig}
                 currentDedupeConfig={currentDedupeConfig}
                 currentCacheConfig={currentCacheConfig}
+                currentExtractConfig={currentExtractConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}

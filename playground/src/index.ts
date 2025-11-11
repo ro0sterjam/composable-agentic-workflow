@@ -5,6 +5,7 @@ import { CacheExecutor } from '../../sdk/src/executors/cache';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
+import { ExtractExecutor } from '../../sdk/src/executors/extract';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
@@ -24,6 +25,7 @@ import {
   ExaSearchTransformerNode,
   DedupeTransformerNode,
   CacheTransformerNode,
+  ExtractTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -44,23 +46,27 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
   defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
   defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
+  defaultExecutorRegistry.registerTransformer('extract', new ExtractExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
   const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
-    .pipe(new CacheTransformerNode('cache', { property: 'query' }))
+    .pipe(new CacheTransformerNode('cacheQuery', { property: 'query' }))
     .pipe(
-      new StructuredLLMTransformerNode('llm', {
+      new StructuredLLMTransformerNode('generateVariants', {
         model: 'openai/gpt-5',
         prompt: 'Generate 5 variants of the following query: ${input}',
         schema: z.array(z.string()),
       })
     )
-    .pipe(new FlatMapTransformerNode('flatmap', new ExaSearchTransformerNode('exa_search')))
+    .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
     .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
-    .pipe(new MapTransformerNode('map', new PeekTransformerNode('peek')))
+    .pipe(
+      new MapTransformerNode('mapText', new ExtractTransformerNode('extract', { property: 'text' }))
+    )
+    .pipe(new MapTransformerNode('mapPeek', new PeekTransformerNode('peek')))
     .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);

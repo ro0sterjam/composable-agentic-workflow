@@ -6,6 +6,7 @@ import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
 import ExaSearchNodeEditor from './ExaSearchNodeEditor';
 import DedupeNodeEditor from './DedupeNodeEditor';
 import CacheNodeEditor from './CacheNodeEditor';
+import ExtractNodeEditor from './ExtractNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -45,6 +46,9 @@ interface NodeEditorProps {
     method?: 'first' | 'last' | 'most frequent';
   };
   currentCacheConfig?: {
+    property: string;
+  };
+  currentExtractConfig?: {
     property: string;
   };
   currentMapConfig?: {
@@ -108,6 +112,9 @@ export interface NodeConfig {
   cacheConfig?: {
     property: string;
   };
+  extractConfig?: {
+    property: string;
+  };
 }
 
 function NodeEditor({
@@ -120,6 +127,7 @@ function NodeEditor({
   currentExaSearchConfig,
   currentDedupeConfig,
   currentCacheConfig,
+  currentExtractConfig,
   currentMapConfig,
   currentFlatmapConfig,
   availableTransformers = [],
@@ -238,6 +246,22 @@ function NodeEditor({
         currentConfig={currentCacheConfig}
         onSave={(label, config) => {
           onSave({ label, cacheConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for EXTRACT nodes
+  if (nodeType === NodeType.EXTRACT) {
+    return (
+      <ExtractNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentExtractConfig}
+        onSave={(label, config) => {
+          onSave({ label, extractConfig: config });
           onClose();
         }}
         onClose={onClose}
