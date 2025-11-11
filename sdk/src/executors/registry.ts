@@ -1,4 +1,6 @@
 import type { SerializedDAG } from '../dag/serializer';
+import type { Logger } from '../logger';
+import { getLogger } from '../logger';
 
 /**
  * DAG context passed to executors
@@ -7,6 +9,14 @@ export interface DAGContext {
   dag: SerializedDAG;
   executorRegistry: ExecutorRegistry;
   cache: Record<string, unknown>;
+  logger?: Logger; // Optional logger, falls back to global logger if not provided
+}
+
+/**
+ * Get logger from context or fall back to global logger
+ */
+export function getLoggerFromContext(context: DAGContext): Logger {
+  return context.logger || getLogger();
 }
 
 /**

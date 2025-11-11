@@ -1,6 +1,7 @@
 import type { PeekTransformerNodeConfig } from '../nodes/impl/peek';
 
 import type { TransformerExecutor, DAGContext } from './registry';
+import { getLoggerFromContext } from './registry';
 
 /**
  * Peek transformer executor - executes peek transformer nodes
@@ -9,29 +10,15 @@ import type { TransformerExecutor, DAGContext } from './registry';
 export class PeekTransformerExecutor<InputType = unknown>
   implements TransformerExecutor<InputType, InputType, PeekTransformerNodeConfig>
 {
-  private logFn?: (message: string, data: unknown) => void;
-
-  /**
-   * Creates a new PeekTransformerExecutor
-   * @param logFn - Optional logging function (defaults to console.log)
-   */
-  constructor(logFn?: (message: string, data: unknown) => void) {
-    this.logFn = logFn;
-  }
-
   async execute(
     input: InputType,
     config: PeekTransformerNodeConfig | undefined,
-    _dagContext: DAGContext
+    dagContext: DAGContext
   ): Promise<InputType> {
+    const logger = getLoggerFromContext(dagContext);
     const logMessage = config?.label ? `[${config.label}]` : '[Peek]';
     const message = `${logMessage} ${JSON.stringify(input, null, 2)}`;
-
-    if (this.logFn) {
-      this.logFn(message, input);
-    } else {
-      console.log(message);
-    }
+    logger.debug(message);
 
     // Forward the input unchanged
     return input;

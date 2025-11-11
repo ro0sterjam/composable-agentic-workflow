@@ -2,9 +2,10 @@
  * HTTP Server for executing DAGs and streaming logs to UI
  */
 
-import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import express from 'express';
+
 import { executeDAGFromFile } from './index.js';
 import type { LogEntry } from './index.js';
 
@@ -33,7 +34,11 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const sendLog = (type: 'info' | 'success' | 'error' | 'warning' | 'console', message: string, nodeId?: string) => {
+  const sendLog = (
+    type: 'debug' | 'info' | 'warn' | 'error' | 'success',
+    message: string,
+    nodeId?: string
+  ) => {
     const log = {
       id: `${Date.now()}-${Math.random()}`,
       timestamp: new Date().toISOString(),
@@ -46,14 +51,14 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
 
   try {
     console.log('[Server] Received DAG execution request');
-    
+
     // dagJson is already a parsed object from req.body, so we need to stringify it
     // But if it's already a string, we should use it as-is
     const dagJsonString = typeof dagJson === 'string' ? dagJson : JSON.stringify(dagJson);
-    
+
     console.log('[Server] Starting DAG execution...');
     const startTime = Date.now();
-    
+
     await executeDAGFromFile({
       dagJson: dagJsonString,
       verbose: true,
@@ -73,7 +78,10 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
     res.end();
   } catch (error) {
     console.error('[Server] DAG execution error:', error);
-    sendLog('error', `DAG execution failed: ${error instanceof Error ? error.message : String(error)}`);
+    sendLog(
+      'error',
+      `DAG execution failed: ${error instanceof Error ? error.message : String(error)}`
+    );
     res.end();
   }
 });
@@ -82,4 +90,3 @@ app.listen(PORT, () => {
   console.log(`[Server] DAG execution server running on http://localhost:${PORT}`);
   console.log(`[Server] Ready to execute DAGs from UI`);
 });
-

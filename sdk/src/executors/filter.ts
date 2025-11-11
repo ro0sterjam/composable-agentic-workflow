@@ -1,6 +1,7 @@
 import type { FilterTransformerNodeConfig } from '../nodes/impl/filter';
 
 import type { TransformerExecutor, DAGContext } from './registry';
+import { getLoggerFromContext } from './registry';
 
 /**
  * Filter transformer executor - executes filter transformer nodes
@@ -11,8 +12,9 @@ export class FilterExecutor<InputType = unknown[], OutputType = InputType>
   execute(
     input: InputType,
     config: FilterTransformerNodeConfig,
-    _dagContext: DAGContext
+    dagContext: DAGContext
   ): OutputType {
+    const logger = getLoggerFromContext(dagContext);
     const { expression } = config;
 
     if (!expression || !expression.trim()) {
@@ -42,7 +44,7 @@ export class FilterExecutor<InputType = unknown[], OutputType = InputType>
         return Boolean(result);
       } catch (error) {
         // If evaluation fails for an item, skip it (or we could throw - for now, skip)
-        console.warn(`Filter expression evaluation failed for item:`, error);
+        logger.warn(`Filter expression evaluation failed for item:`, error);
         return false;
       }
     });

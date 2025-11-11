@@ -32,6 +32,10 @@ import {
   type SerializedDAG,
   type NodeExecutionResult,
   defaultExecutorRegistry,
+  setLogger,
+  CallbackLogger,
+  CompositeLogger,
+  TerminalLogger,
 } from '../../sdk/src/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,10 +44,12 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config();
 
+export type LogType = 'debug' | 'info' | 'warn' | 'error' | 'success';
+
 export interface LogEntry {
   id: string;
   timestamp: Date;
-  type: 'info' | 'success' | 'error' | 'warning' | 'console';
+  type: LogType;
   message: string;
   nodeId?: string;
 }
@@ -52,7 +58,7 @@ interface ExecutionOptions {
   dagFile?: string;
   dagJson?: string;
   verbose?: boolean;
-  onLog?: (type: LogEntry['type'], message: string, nodeId?: string) => void;
+  onLog?: (type: LogType, message: string, nodeId?: string) => void;
 }
 
 /**
@@ -62,7 +68,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   const { dagFile, dagJson, verbose = false, onLog } = options;
 
   // Execute with state change callbacks
-  const sendLog = (type: LogEntry['type'], message: string, nodeId?: string) => {
+  const sendLog = (type: LogType, message: string, nodeId?: string) => {
     if (onLog) {
       onLog(type, message, nodeId);
     }
@@ -74,16 +80,41 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
     }
   };
 
-  // Register executors with custom logging for console terminal and peek
+  // Map SDK log levels to log types
+  const mapLogLevelToType = (level: 'debug' | 'info' | 'warn' | 'error'): LogType => {
+    return level; // Direct mapping, SDK levels match our types
+  };
+
+  // Create loggers
+  const loggers: Array<CallbackLogger | TerminalLogger> = [];
+
+  // Logger that forwards to UI callback
+  if (onLog) {
+    loggers.push(
+      new CallbackLogger((level, message, ...args) => {
+        const fullMessage =
+          args.length > 0
+            ? `${message} ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`
+            : message;
+        const logType = mapLogLevelToType(level);
+        sendLog(logType, fullMessage);
+      })
+    );
+  }
+
+  // Terminal logger for verbose mode
+  if (verbose) {
+    loggers.push(new TerminalLogger('debug'));
+  }
+
+  // Set up the logger (composite if multiple, single otherwise, or no-op if none)
+  if (loggers.length > 0) {
+    setLogger(loggers.length > 1 ? new CompositeLogger(...loggers) : loggers[0]);
+  }
+
+  // Register executors (no custom logging needed - they use the global logger)
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
-  defaultExecutorRegistry.registerTerminal(
-    'console',
-    new ConsoleTerminalExecutor((message: string, data: unknown) => {
-      // Send log through the app's logging system
-      const logMessage = `${message} ${typeof data === 'string' ? data : JSON.stringify(data)}`;
-      sendLog('console', logMessage);
-    })
-  );
+  defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
   defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
@@ -91,13 +122,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer('extract', new ExtractExecutor());
   defaultExecutorRegistry.registerTransformer('filter', new FilterExecutor());
-  defaultExecutorRegistry.registerTransformer(
-    'peek',
-    new PeekTransformerExecutor((message: string, _data: unknown) => {
-      // Send log through the app's logging system
-      sendLog('info', message);
-    })
-  );
+  defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('agent', new AgentExecutor());
@@ -176,14 +201,14 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
         } else {
           sendLog('success', `Completed: ${nodeLabel}`, nodeId);
 
-          // Check for console output
+          // Check for console terminal output - log as info
           if (
             node &&
             'type' in node &&
             node.type === 'console' &&
             nodeResult.output !== undefined
           ) {
-            sendLog('console', String(nodeResult.output), nodeId);
+            sendLog('info', String(nodeResult.output), nodeId);
           }
         }
       },
@@ -227,7 +252,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
       `DAG execution failed after ${duration}ms: ${error instanceof Error ? error.message : String(error)}`
     );
     if (verbose && error instanceof Error) {
-      sendLog('error', `Stack: ${error.stack}`, undefined);
+      sendLog('error', `Stack: ${error.stack}`);
     }
     if (!onLog) {
       // Only exit if not being called from server (CLI mode)

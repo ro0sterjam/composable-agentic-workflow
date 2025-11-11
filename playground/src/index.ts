@@ -30,6 +30,8 @@ import {
   ExtractTransformerNode,
   FilterTransformerNode,
   AgentTransformerNode,
+  setLogger,
+  TerminalLogger,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -67,6 +69,9 @@ function truncateOutput(output: unknown, maxLength: number = 500): unknown {
 
 async function main() {
   console.log('Playground starting...\n');
+
+  // Set up terminal logger for playground
+  setLogger(new TerminalLogger('debug'));
 
   // Register executors
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());

@@ -1,16 +1,13 @@
 import type { TerminalExecutor, DAGContext } from './registry';
+import { getLoggerFromContext } from './registry';
 
 /**
- * Console terminal executor - logs the input using a provided logging function
+ * Console terminal executor - logs the input using the logger from context
  */
 export class ConsoleTerminalExecutor<InputType> implements TerminalExecutor<InputType, undefined> {
-  private logFn: (message: string, data: InputType) => void;
-
-  constructor(logFn?: (message: string, data: InputType) => void) {
-    this.logFn = logFn || ((message: string, data: InputType) => console.log(message, data));
-  }
-
-  execute(input: InputType, _config: undefined, _dagContext: DAGContext): void {
-    this.logFn('ConsoleTerminal:', input);
+  execute(input: InputType, _config: undefined, dagContext: DAGContext): void {
+    const logger = getLoggerFromContext(dagContext);
+    const message = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+    logger.info(`ConsoleTerminal: ${message}`);
   }
 }

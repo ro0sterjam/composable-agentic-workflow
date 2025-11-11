@@ -1,5 +1,6 @@
-import { defaultExecutorRegistry } from '../executors/registry';
+import { defaultExecutorRegistry, getLoggerFromContext } from '../executors/registry';
 import type { ExecutorRegistry, DAGContext } from '../executors/registry';
+import { getLogger } from '../logger';
 
 import type { SerializedDAG, SerializedNode, SerializedEdge } from './serializer';
 
@@ -313,19 +314,20 @@ export async function executeDAGFromNode(
 
   // Find all nodes reachable from the starting node (downstream nodes)
   const reachableNodeIds = findReachableNodes(dag, startNodeId);
-  console.log(
+  const logger = getLogger();
+  logger.debug(
     `[executeDAGFromNode] Starting from node '${startNodeId}', found ${reachableNodeIds.size} reachable nodes:`,
     Array.from(reachableNodeIds).join(', ')
   );
 
   // Also include any nodes referenced by reachable nodes (e.g., transformerId in map/flatmap)
   const referencedNodeIds = findReferencedNodes(dag, reachableNodeIds);
-  console.log(
+  logger.debug(
     `[executeDAGFromNode] Found ${referencedNodeIds.size} referenced nodes:`,
     Array.from(referencedNodeIds).join(', ')
   );
   const allNodeIdsToExecute = new Set([...reachableNodeIds, ...referencedNodeIds]);
-  console.log(
+  logger.debug(
     `[executeDAGFromNode] Total nodes to execute: ${allNodeIdsToExecute.size}`,
     Array.from(allNodeIdsToExecute).join(', ')
   );
@@ -344,14 +346,14 @@ export async function executeDAGFromNode(
   // Check if starting node is a source node
   const sourceExecutor = executorRegistry.getSource(startNode.type);
   const isSourceNode = !!sourceExecutor;
-  console.log(
+  logger.debug(
     `[executeDAGFromNode] Starting node '${startNodeId}' type: '${startNode.type}', isSourceNode: ${isSourceNode}, hasInput: ${input !== undefined}`
   );
 
   // If not a source node and no input provided, check if it has incoming edges in the full graph
   if (!isSourceNode && input === undefined) {
     const hasIncomingEdges = dag.edges.some((edge) => edge.to === startNodeId);
-    console.log(
+    logger.debug(
       `[executeDAGFromNode] Starting node '${startNodeId}' is not a source node, hasIncomingEdges: ${hasIncomingEdges}`
     );
     if (hasIncomingEdges) {
@@ -426,7 +428,7 @@ export async function executeDAGFromNode(
       if (nodeId === startNodeId && !isSourceNode && input !== undefined) {
         // Use provided input for starting node
         nodeInput = input;
-        console.log(
+        logger.debug(
           `[executeDAGFromNode] Node '${nodeId}' using provided input:`,
           typeof nodeInput === 'string'
             ? nodeInput.substring(0, 100) + (nodeInput.length > 100 ? '...' : '')
@@ -435,7 +437,7 @@ export async function executeDAGFromNode(
       } else {
         // Get input from connected nodes (or undefined if source node)
         nodeInput = getNodeInput(nodeId, subgraph.edges, nodeOutputs);
-        console.log(
+        logger.debug(
           `[executeDAGFromNode] Node '${nodeId}' input from edges:`,
           nodeInput === undefined
             ? 'undefined'
@@ -446,9 +448,9 @@ export async function executeDAGFromNode(
       }
 
       // Execute the node
-      console.log(`[executeDAGFromNode] Executing node '${nodeId}' of type '${node.type}'`);
+      logger.debug(`[executeDAGFromNode] Executing node '${nodeId}' of type '${node.type}'`);
       const output = await executeNode(node, nodeInput, executorRegistry, dag, cache);
-      console.log(
+      logger.debug(
         `[executeDAGFromNode] Node '${nodeId}' execution completed, output type: ${typeof output}`
       );
 
@@ -504,19 +506,19 @@ export async function executeDAGFromNode(
   const hasErrors = nodesWithErrors.length > 0;
   const success = startingNodeExecuted && !hasErrors;
 
-  console.log(
+  logger.debug(
     `[executeDAGFromNode] Execution completed. Starting node executed: ${startingNodeExecuted}, Results: ${results.size}/${allNodeIdsToExecute.size}`
   );
-  console.log(`[executeDAGFromNode] Executed nodes:`, Array.from(results.keys()).join(', '));
+  logger.debug(`[executeDAGFromNode] Executed nodes:`, Array.from(results.keys()).join(', '));
   if (nodesWithErrors.length > 0) {
-    console.error(
+    logger.error(
       `[executeDAGFromNode] Nodes with errors:`,
       nodesWithErrors.map(([id, r]) => `${id}: ${r.error?.message}`).join(', ')
     );
   } else {
-    console.log(`[executeDAGFromNode] Nodes with errors: none`);
+    logger.debug(`[executeDAGFromNode] Nodes with errors: none`);
   }
-  console.log(
+  logger.debug(
     `[executeDAGFromNode] Success: ${success} (startingNodeExecuted: ${startingNodeExecuted}, hasErrors: ${hasErrors})`
   );
 

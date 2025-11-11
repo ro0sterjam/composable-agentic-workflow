@@ -6,6 +6,7 @@ import type { OpenAIModel } from '../nodes/impl/models';
 
 import { interpolateString } from './interpolation';
 import type { TransformerExecutor, DAGContext } from './registry';
+import { getLoggerFromContext } from './registry';
 
 /**
  * Internal config type that the executor receives (with JSON Schema)
@@ -33,6 +34,8 @@ export class AgentExecutor<InputType = string, OutputType = string>
     config: AgentTransformerNodeExecutorConfig,
     dagContext: DAGContext
   ): Promise<OutputType> {
+    const logger = getLoggerFromContext(dagContext);
+    
     // Interpolate system prompt if provided
     const system = config.system ? interpolateString(config.system, input, dagContext) : undefined;
 
@@ -86,7 +89,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
         description: toolConfig.description,
         inputSchema: jsonSchema(wrappedSchema),
         execute: async (args: Record<string, unknown>): Promise<unknown> => {
-          console.log(
+          logger.debug(
             `[AgentExecutor] Starting tool execution: '${toolConfig.name}' with args:`,
             JSON.stringify(args, null, 2)
           );
@@ -96,22 +99,22 @@ export class AgentExecutor<InputType = string, OutputType = string>
           if (needsUnwrap) {
             const wrappedArgs = args as { value: unknown };
             transformerInput = wrappedArgs.value;
-            console.log(
+            logger.debug(
               `[AgentExecutor] Tool '${toolConfig.name}' unwrapped input (non-object schema):`,
               JSON.stringify(transformerInput, null, 2)
             );
           } else {
             transformerInput = args;
-            console.log(
+            logger.debug(
               `[AgentExecutor] Tool '${toolConfig.name}' using input as-is (object schema):`,
               JSON.stringify(transformerInput, null, 2)
             );
           }
 
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' executing subgraph starting from node: ${toolConfig.transformerId}`
           );
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' input:`,
             JSON.stringify(transformerInput, null, 2)
           );
@@ -125,26 +128,26 @@ export class AgentExecutor<InputType = string, OutputType = string>
               input: transformerInput,
               cache: dagContext.cache,
               onNodeStart: (nodeId) => {
-                console.log(
+                logger.debug(
                   `[AgentExecutor] Tool '${toolConfig.name}' subgraph node started: ${nodeId}`
                 );
               },
               onNodeComplete: (nodeId, nodeResult) => {
                 if (nodeResult.error) {
-                  console.error(
+                  logger.error(
                     `[AgentExecutor] Tool '${toolConfig.name}' subgraph node '${nodeId}' failed:`,
                     nodeResult.error.message
                   );
-                  console.error(
+                  logger.error(
                     `[AgentExecutor] Tool '${toolConfig.name}' subgraph node '${nodeId}' error stack:`,
                     nodeResult.error.stack
                   );
                 } else {
-                  console.log(
+                  logger.debug(
                     `[AgentExecutor] Tool '${toolConfig.name}' subgraph node '${nodeId}' completed`
                   );
                   if (nodeResult.output !== undefined) {
-                    console.log(
+                    logger.debug(
                       `[AgentExecutor] Tool '${toolConfig.name}' subgraph node '${nodeId}' output type:`,
                       typeof nodeResult.output
                     );
@@ -153,16 +156,16 @@ export class AgentExecutor<InputType = string, OutputType = string>
               },
             });
           } catch (executeError) {
-            console.error(
+            logger.error(
               `[AgentExecutor] Tool '${toolConfig.name}' subgraph execution threw an exception:`,
               executeError
             );
             if (executeError instanceof Error) {
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' exception message:`,
                 executeError.message
               );
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' exception stack:`,
                 executeError.stack
               );
@@ -171,8 +174,8 @@ export class AgentExecutor<InputType = string, OutputType = string>
           }
 
           if (!result.success) {
-            console.error(`[AgentExecutor] Tool '${toolConfig.name}' subgraph execution failed`);
-            console.error(
+            logger.error(`[AgentExecutor] Tool '${toolConfig.name}' subgraph execution failed`);
+            logger.error(
               `[AgentExecutor] Tool '${toolConfig.name}' execution result:`,
               JSON.stringify(
                 Array.from(result.results.entries()).map(([id, r]) => ({
@@ -191,11 +194,11 @@ export class AgentExecutor<InputType = string, OutputType = string>
             for (const [nodeId, nodeResult] of result.results.entries()) {
               if (nodeResult.error) {
                 foundError = true;
-                console.error(
+                logger.error(
                   `[AgentExecutor] Tool '${toolConfig.name}' error in node '${nodeId}':`,
                   nodeResult.error.message
                 );
-                console.error(
+                logger.error(
                   `[AgentExecutor] Tool '${toolConfig.name}' error stack:`,
                   nodeResult.error.stack
                 );
@@ -206,18 +209,18 @@ export class AgentExecutor<InputType = string, OutputType = string>
             }
 
             if (!foundError) {
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' subgraph execution failed but no errors found in results`
               );
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' executed nodes:`,
                 Array.from(result.results.keys()).join(', ')
               );
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' result.success:`,
                 result.success
               );
-              console.error(
+              logger.error(
                 `[AgentExecutor] Tool '${toolConfig.name}' result.results.size:`,
                 result.results.size
               );
@@ -227,7 +230,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
             }
           }
 
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' subgraph execution completed successfully`
           );
 
@@ -247,7 +250,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
             return nodeResult?.output !== undefined;
           });
 
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' found ${terminalNodesWithOutput.length} terminal node(s) with output`
           );
 
@@ -258,7 +261,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
             // If transformer node is a terminal node with output, use it
             if (terminalNodesWithOutput.includes(toolConfig.transformerId)) {
               output = transformerResult.output;
-              console.log(
+              logger.debug(
                 `[AgentExecutor] Tool '${toolConfig.name}' using transformer node output (terminal node)`
               );
             } else if (terminalNodesWithOutput.length > 0) {
@@ -266,14 +269,14 @@ export class AgentExecutor<InputType = string, OutputType = string>
               const terminalResult = result.results.get(terminalNodesWithOutput[0]);
               if (terminalResult?.output !== undefined) {
                 output = terminalResult.output;
-                console.log(
+                logger.debug(
                   `[AgentExecutor] Tool '${toolConfig.name}' using terminal node output: ${terminalNodesWithOutput[0]}`
                 );
               }
             } else {
               // No terminal nodes with output, use transformer node's output
               output = transformerResult.output;
-              console.log(
+              logger.debug(
                 `[AgentExecutor] Tool '${toolConfig.name}' using transformer node output (no terminal nodes)`
               );
             }
@@ -282,17 +285,17 @@ export class AgentExecutor<InputType = string, OutputType = string>
             const terminalResult = result.results.get(terminalNodesWithOutput[0]);
             if (terminalResult?.output !== undefined) {
               output = terminalResult.output;
-              console.log(
+              logger.debug(
                 `[AgentExecutor] Tool '${toolConfig.name}' using terminal node output (transformer has no output): ${terminalNodesWithOutput[0]}`
               );
             }
           }
 
           if (output === undefined) {
-            console.error(
+            logger.error(
               `[AgentExecutor] Tool '${toolConfig.name}' completed but no output found. Transformer node: ${toolConfig.transformerId}`
             );
-            console.error(
+            logger.error(
               `[AgentExecutor] Tool '${toolConfig.name}' executed nodes:`,
               Array.from(result.results.keys()).join(', ')
             );
@@ -301,7 +304,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
             );
           }
 
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' completed successfully. Output type: ${typeof output}, Output preview:`,
             typeof output === 'string'
               ? output.substring(0, 200) + (output.length > 200 ? '...' : '')
@@ -311,7 +314,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
                   ? JSON.stringify(output, null, 2).substring(0, 200) + '...'
                   : String(output)
           );
-          console.log(
+          logger.debug(
             `[AgentExecutor] Tool '${toolConfig.name}' result:`,
             JSON.stringify(output, null, 2).substring(0, 500) +
               (JSON.stringify(output, null, 2).length > 500 ? '...' : '')
@@ -334,20 +337,20 @@ export class AgentExecutor<InputType = string, OutputType = string>
 
     if (config.maxLoops !== undefined) {
       agentConfig.stopWhen = stepCountIs(config.maxLoops);
-      console.log(`[AgentExecutor] Agent configured with maxLoops: ${config.maxLoops}`);
+      logger.debug(`[AgentExecutor] Agent configured with maxLoops: ${config.maxLoops}`);
     } else {
       // No limit - use a very high number (1000 steps should be more than enough)
       agentConfig.stopWhen = stepCountIs(1000);
-      console.log(
+      logger.debug(
         `[AgentExecutor] Agent configured with no maxLoops limit (using 1000 as practical limit)`
       );
     }
 
-    console.log(
+    logger.debug(
       `[AgentExecutor] Creating agent with ${config.tools.length} tool(s):`,
       config.tools.map((t) => t.name).join(', ')
     );
-    console.log(
+    logger.debug(
       `[AgentExecutor] Agent prompt:`,
       prompt.substring(0, 200) + (prompt.length > 200 ? '...' : '')
     );
@@ -356,15 +359,15 @@ export class AgentExecutor<InputType = string, OutputType = string>
 
     // Generate response from the agent
     // The agent will automatically handle tool calls and continue until it generates text
-    console.log(`[AgentExecutor] Starting agent execution...`);
+    logger.debug(`[AgentExecutor] Starting agent execution...`);
     const result = await agent.generate({
       prompt,
     });
 
-    console.log(
+    logger.debug(
       `[AgentExecutor] Agent execution completed. Response length: ${result.text.length} characters`
     );
-    console.log(
+    logger.debug(
       `[AgentExecutor] Agent response:`,
       result.text.substring(0, 500) + (result.text.length > 500 ? '...' : '')
     );

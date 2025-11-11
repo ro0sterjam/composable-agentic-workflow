@@ -435,7 +435,12 @@ function App() {
           if (line.startsWith('data: ')) {
             try {
               const log: LogEntry = JSON.parse(line.substring(6));
-              addLog(log.type, log.message, log.nodeId);
+              // Parse timestamp string to Date object
+              const logEntry: LogEntry = {
+                ...log,
+                timestamp: new Date(log.timestamp),
+              };
+              addLog(logEntry.type, logEntry.message, logEntry.nodeId);
               
               // Update node states based on log messages
               if (log.nodeId) {

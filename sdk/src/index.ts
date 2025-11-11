@@ -9,3 +9,4 @@ export * from './nodes';
 export * from './dag/serializer';
 export * from './dag/executor';
 export * from './executors/registry';
+export * from './logger';
