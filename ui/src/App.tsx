@@ -34,6 +34,22 @@ const nodeTypes: NodeTypes = {
 let nodeIdCounter = 0;
 const getNodeId = () => `node_${++nodeIdCounter}`;
 
+/**
+ * Determine the category of a node type (source, transformer, or terminal)
+ */
+function getNodeTypeCategory(nodeType: string): 'source' | 'transformer' | 'terminal' {
+  // Sources: produce output, no input
+  const sources = ['literal'];
+  
+  // Terminals: take input, produce no output
+  const terminals = ['console'];
+  
+  // Transformers: take input, produce output (everything else)
+  if (sources.includes(nodeType)) return 'source';
+  if (terminals.includes(nodeType)) return 'terminal';
+  return 'transformer';
+}
+
 const STORAGE_KEY = 'dag-editor-state';
 const STORAGE_KEY_COUNTER = 'dag-editor-node-counter';
 
@@ -263,6 +279,18 @@ function App() {
         return;
       }
 
+      // Check if source node is a terminal - terminals can't connect to anything
+      const sourceNode = nodesRef.current.find((n) => n.id === connectionStart.nodeId);
+      if (sourceNode) {
+        const sourceCategory = getNodeTypeCategory(sourceNode.data.nodeType as string);
+        if (sourceCategory === 'terminal') {
+          // Terminal nodes can't be sources, so don't show menu
+          setConnectionStart(null);
+          setMenuPosition(null);
+          return;
+        }
+      }
+
       // Connection ended without connecting - show menu at final position
       const mouseEvent = event as MouseEvent;
       setMenuPosition({
@@ -301,6 +329,49 @@ function App() {
           setConnectionStart(null);
           setMenuPosition(null);
           return; // Reject the connection
+        }
+      }
+
+      // Validate node type connections
+      if (params.source && params.target) {
+        const sourceNode = nodesRef.current.find((n) => n.id === params.source);
+        const targetNode = nodesRef.current.find((n) => n.id === params.target);
+        
+        if (sourceNode && targetNode) {
+          const sourceCategory = getNodeTypeCategory(sourceNode.data.nodeType as string);
+          const targetCategory = getNodeTypeCategory(targetNode.data.nodeType as string);
+          
+          // Terminal nodes cannot be sources (they don't produce output)
+          if (sourceCategory === 'terminal') {
+            const sourceLabel = sourceNode.data.label || sourceNode.id;
+            if (typeof addLog === 'function') {
+              addLog(
+                'error',
+                `Invalid connection: Terminal node "${sourceLabel}" cannot be a source. Terminal nodes do not produce output.`
+              );
+            }
+            // Mark as handled so menu doesn't show
+            connectionMadeRef.current = true;
+            setConnectionStart(null);
+            setMenuPosition(null);
+            return; // Reject the connection
+          }
+          
+          // Source nodes cannot be targets (they don't take input)
+          if (targetCategory === 'source') {
+            const targetLabel = targetNode.data.label || targetNode.id;
+            if (typeof addLog === 'function') {
+              addLog(
+                'error',
+                `Invalid connection: Source node "${targetLabel}" cannot be a target. Source nodes do not accept input.`
+              );
+            }
+            // Mark as handled so menu doesn't show
+            connectionMadeRef.current = true;
+            setConnectionStart(null);
+            setMenuPosition(null);
+            return; // Reject the connection
+          }
         }
       }
 
@@ -557,6 +628,41 @@ function App() {
       const nodeId = getNodeId();
       const label = nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
 
+      // Validate node type connections before creating node and edge
+      const sourceNode = nodesRef.current.find((n) => n.id === connectionStart.nodeId);
+      
+      if (sourceNode) {
+        const sourceCategory = getNodeTypeCategory(sourceNode.data.nodeType as string);
+        const targetCategory = getNodeTypeCategory(nodeType);
+        
+        // Terminal nodes cannot be sources (they don't produce output)
+        if (sourceCategory === 'terminal') {
+          const sourceLabel = sourceNode.data.label || sourceNode.id;
+          if (typeof addLog === 'function') {
+            addLog(
+              'error',
+              `Invalid connection: Terminal node "${sourceLabel}" cannot be a source. Terminal nodes do not produce output.`
+            );
+          }
+          setConnectionStart(null);
+          setMenuPosition(null);
+          return; // Reject the connection
+        }
+        
+        // Source nodes cannot be targets (they don't take input)
+        if (targetCategory === 'source') {
+          if (typeof addLog === 'function') {
+            addLog(
+              'error',
+              `Invalid connection: Source node "${nodeType}" cannot be a target. Source nodes do not accept input.`
+            );
+          }
+          setConnectionStart(null);
+          setMenuPosition(null);
+          return; // Reject the connection
+        }
+      }
+
       const newNode: Node = {
         id: nodeId,
         type: 'custom',
@@ -704,6 +810,36 @@ function App() {
     }
   }, []);
 
+  // Compute which nodes are referenced by nesting nodes (map/flatmap/agent)
+  const referencedNodeIds = React.useMemo(() => {
+    const referenced = new Set<string>();
+    
+    for (const node of nodes) {
+      const nodeType = node.data.nodeType as NodeType;
+      
+      // Check if this is a Map node with a transformer
+      if (nodeType === NodeType.MAP && node.data.mapConfig?.transformerId) {
+        referenced.add(node.data.mapConfig.transformerId);
+      }
+      
+      // Check if this is a FlatMap node with a transformer
+      if (nodeType === NodeType.FLATMAP && node.data.flatmapConfig?.transformerId) {
+        referenced.add(node.data.flatmapConfig.transformerId);
+      }
+      
+      // Check if this is an Agent node with tools
+      if (nodeType === NodeType.AGENT && node.data.agentConfig?.tools) {
+        for (const tool of node.data.agentConfig.tools) {
+          if (tool.transformerId) {
+            referenced.add(tool.transformerId);
+          }
+        }
+      }
+    }
+    
+    return referenced;
+  }, [nodes]);
+
   // Generate virtual edges from Map/FlatMap nodes to their transformer nodes
   const transformerEdges = React.useMemo(() => {
     const virtualEdges: Edge[] = [];
@@ -836,6 +972,7 @@ function App() {
                 ...node.data,
                 executionState: nodeExecutionStates.get(node.id) || 'idle',
                 onDoubleClick: onNodeEdit,
+                isReferencedByNestingNode: referencedNodeIds.has(node.id),
               },
             }))}
             edges={allEdges}
@@ -903,6 +1040,11 @@ function App() {
             setMenuPosition(null);
             setConnectionStart(null);
           }}
+          sourceNodeType={
+            connectionStart
+              ? nodesRef.current.find((n) => n.id === connectionStart.nodeId)?.data.nodeType
+              : undefined
+          }
         />
       )}
       {editingNodeId && (() => {

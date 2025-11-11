@@ -60,9 +60,31 @@ export interface DAGValidationResult {
 /**
  * Validate a DAG structure
  * Checks for common issues like duplicate edges pointing to the same target
+ * and invalid node type connections
  */
-export function validateDAG(dag: SerializedDAG): DAGValidationResult {
+export function validateDAG(
+  dag: SerializedDAG,
+  executorRegistry?: ExecutorRegistry
+): DAGValidationResult {
   const errors: string[] = [];
+  const registry = executorRegistry || defaultExecutorRegistry;
+
+  // Build node map for quick lookup
+  const nodeMap = new Map<string, SerializedNode>();
+  for (const node of dag.nodes) {
+    nodeMap.set(node.id, node);
+  }
+
+  // Helper function to determine node type category
+  const getNodeCategory = (nodeId: string): 'source' | 'transformer' | 'terminal' | 'unknown' => {
+    const node = nodeMap.get(nodeId);
+    if (!node) return 'unknown';
+    
+    if (registry.getSource(node.type)) return 'source';
+    if (registry.getTransformer(node.type)) return 'transformer';
+    if (registry.getTerminal(node.type)) return 'terminal';
+    return 'unknown';
+  };
 
   // Check for duplicate edges with the same target (to)
   const targetToEdges = new Map<string, SerializedEdge[]>();
@@ -83,6 +105,41 @@ export function validateDAG(dag: SerializedDAG): DAGValidationResult {
     }
   }
 
+  // Validate node type connections
+  for (const edge of dag.edges) {
+    const fromNode = nodeMap.get(edge.from);
+    const toNode = nodeMap.get(edge.to);
+    
+    if (!fromNode) {
+      errors.push(`Edge references non-existent source node "${edge.from}"`);
+      continue;
+    }
+    
+    if (!toNode) {
+      errors.push(`Edge references non-existent target node "${edge.to}"`);
+      continue;
+    }
+
+    const fromCategory = getNodeCategory(edge.from);
+    const toCategory = getNodeCategory(edge.to);
+
+    // Terminal nodes cannot be sources (they don't produce output)
+    if (fromCategory === 'terminal') {
+      const fromLabel = fromNode.label || fromNode.id;
+      errors.push(
+        `Invalid connection: Terminal node "${fromLabel}" (${fromNode.type}) cannot be a source. Terminal nodes do not produce output.`
+      );
+    }
+
+    // Source nodes cannot be targets (they don't take input)
+    if (toCategory === 'source') {
+      const toLabel = toNode.label || toNode.id;
+      errors.push(
+        `Invalid connection: Source node "${toLabel}" (${toNode.type}) cannot be a target. Source nodes do not accept input.`
+      );
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -99,7 +156,7 @@ export async function executeDAG(
   const { executorRegistry = defaultExecutorRegistry, onNodeStart, onNodeComplete } = options;
 
   // Validate DAG structure before execution
-  const validation = validateDAG(dag);
+  const validation = validateDAG(dag, executorRegistry);
   if (!validation.valid) {
     const errorMessage = `DAG validation failed:\n${validation.errors.join('\n')}`;
     const logger = getLogger();
@@ -393,7 +450,7 @@ export async function executeDAGFromNode(
   };
 
   // Validate subgraph structure before execution
-  const subgraphValidation = validateDAG(subgraph);
+  const subgraphValidation = validateDAG(subgraph, executorRegistry);
   if (!subgraphValidation.valid) {
     const errorMessage = `Subgraph validation failed:\n${subgraphValidation.errors.join('\n')}`;
     const logger = getLogger();

@@ -72,6 +72,7 @@ interface CustomNodeData {
   };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
+  isReferencedByNestingNode?: boolean; // Whether this node is referenced by a map/flatmap/agent node
 }
 
 const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: string }> = {
@@ -198,25 +199,30 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
       )}
 
       {/* Top handle for transformer nodes that can be used by Map/FlatMap (visual only, not connectable) */}
-      {(nodeType === NodeType.SIMPLE_LLM ||
-        nodeType === NodeType.STRUCTURED_LLM ||
-        nodeType === NodeType.EXA_SEARCH ||
-        nodeType === NodeType.PEEK ||
-        nodeType === NodeType.EXTRACT) && (
-        <Handle
-          type="target"
-          position={Position.Top}
-          id="top"
-          isConnectable={false}
-          style={{ 
-            background: '#8b5cf6',
-            border: '2px solid #8b5cf6',
-            width: '10px',
-            height: '10px',
-            cursor: 'default',
-          }}
-        />
-      )}
+      {/* Only show if the node is actually referenced by a nesting node */}
+      {data.isReferencedByNestingNode &&
+        (nodeType === NodeType.SIMPLE_LLM ||
+          nodeType === NodeType.STRUCTURED_LLM ||
+          nodeType === NodeType.EXA_SEARCH ||
+          nodeType === NodeType.PEEK ||
+          nodeType === NodeType.EXTRACT ||
+          nodeType === NodeType.DEDUPE ||
+          nodeType === NodeType.CACHE ||
+          nodeType === NodeType.FILTER) && (
+          <Handle
+            type="target"
+            position={Position.Top}
+            id="top"
+            isConnectable={false}
+            style={{ 
+              background: '#8b5cf6',
+              border: '2px solid #8b5cf6',
+              width: '10px',
+              height: '10px',
+              cursor: 'default',
+            }}
+          />
+        )}
       
       <div className="node-ports">
         {nodeType === NodeType.LITERAL && (
