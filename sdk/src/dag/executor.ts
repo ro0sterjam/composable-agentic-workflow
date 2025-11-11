@@ -256,7 +256,7 @@ export async function executeDAG(
 
     try {
       // Log node start
-      logger.info(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
+      logger.debug(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
 
       // Notify start callback
       if (onNodeStart) {
@@ -282,7 +282,7 @@ export async function executeDAG(
       results.set(nodeId, result);
 
       // Log node completion with timing
-      logger.info(
+      logger.debug(
         `[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`
       );
 
@@ -583,8 +583,9 @@ export async function executeDAGFromNode(
   const nodeOutputs = new Map<string, unknown>();
   const results = new Map<string, NodeExecutionResult>();
 
-  // Create cache that lives for the lifetime of the DAG execution
-  const cache: Record<string, unknown> = {};
+  // Use provided cache if available, otherwise create a new one
+  // This allows cache to be shared across subgraph executions (e.g., from agent tools)
+  const cache: Record<string, unknown> = providedCache || {};
 
   // Topological sort and execution
   while (queue.length > 0) {
@@ -595,7 +596,7 @@ export async function executeDAGFromNode(
 
     try {
       // Log node start
-      logger.info(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
+      logger.debug(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
 
       // Notify start callback
       if (onNodeStart) {
@@ -646,7 +647,7 @@ export async function executeDAGFromNode(
       results.set(nodeId, result);
 
       // Log node completion with timing
-      logger.info(
+      logger.debug(
         `[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`
       );
 

@@ -17,6 +17,7 @@ interface LogPanelProps {
 function LogPanel({ logs }: LogPanelProps) {
   const logPanelRef = React.useRef<HTMLDivElement>(null);
   const [selectedType, setSelectedType] = useState<LogType | 'all'>('info');
+  const [textFilter, setTextFilter] = useState<string>('');
 
   // Auto-scroll to bottom when new logs are added
   React.useEffect(() => {
@@ -44,14 +45,28 @@ function LogPanel({ logs }: LogPanelProps) {
     }
   };
 
-  // Filter logs based on selected type - show selected type and all higher levels
+  // Filter logs based on selected type and text filter
   const filteredLogs = React.useMemo(() => {
-    if (selectedType === 'all') {
-      return logs;
+    let filtered = logs;
+
+    // Filter by type
+    if (selectedType !== 'all') {
+      const selectedHierarchy = getTypeHierarchy(selectedType);
+      filtered = filtered.filter((log) => getTypeHierarchy(log.type) >= selectedHierarchy);
     }
-    const selectedHierarchy = getTypeHierarchy(selectedType);
-    return logs.filter((log) => getTypeHierarchy(log.type) >= selectedHierarchy);
-  }, [logs, selectedType]);
+
+    // Filter by text search
+    if (textFilter.trim()) {
+      const searchLower = textFilter.toLowerCase();
+      filtered = filtered.filter((log) => {
+        const messageMatch = log.message.toLowerCase().includes(searchLower);
+        const nodeIdMatch = log.nodeId?.toLowerCase().includes(searchLower);
+        return messageMatch || nodeIdMatch;
+      });
+    }
+
+    return filtered;
+  }, [logs, selectedType, textFilter]);
 
   const getLogColor = (type: LogType) => {
     switch (type) {
@@ -83,7 +98,7 @@ function LogPanel({ logs }: LogPanelProps) {
   return (
     <div className="log-panel">
       <div className="log-panel-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <h2>Execution Log</h2>
           <select
             value={selectedType}
@@ -107,13 +122,61 @@ function LogPanel({ logs }: LogPanelProps) {
             <option value="error">Error only</option>
           </select>
         </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Filter logs by text..."
+            value={textFilter}
+            onChange={(e) => setTextFilter(e.target.value)}
+            style={{
+              flex: 1,
+              background: '#3a3a3a',
+              color: '#e5e5e5',
+              border: '1px solid #4a4a4a',
+              borderRadius: '4px',
+              padding: '6px 10px',
+              fontSize: '12px',
+              outline: 'none',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#3b82f6';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#4a4a4a';
+            }}
+          />
+          {textFilter && (
+            <button
+              onClick={() => setTextFilter('')}
+              style={{
+                background: '#4a4a4a',
+                color: '#e5e5e5',
+                border: '1px solid #5a5a5a',
+                borderRadius: '4px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#5a5a5a';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#4a4a4a';
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
       <div className="log-panel-content" ref={logPanelRef}>
         {filteredLogs.length === 0 ? (
           <div className="log-empty">
             {logs.length === 0
               ? 'No logs yet. Run the DAG to see execution logs.'
-              : `No ${selectedType === 'all' ? '' : selectedType} logs to display.`}
+              : textFilter
+                ? `No logs match "${textFilter}".`
+                : `No ${selectedType === 'all' ? '' : selectedType} logs to display.`}
           </div>
         ) : (
           filteredLogs.map((log) => (

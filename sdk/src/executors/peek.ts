@@ -18,7 +18,7 @@ export class PeekTransformerExecutor<InputType = unknown>
     const logger = getLoggerFromContext(dagContext);
     const logMessage = config?.label ? `[${config.label}]` : '[Peek]';
     const message = `${logMessage} ${JSON.stringify(input, null, 2)}`;
-    logger.debug(message);
+    logger.info(message);
 
     // Forward the input unchanged
     return input;

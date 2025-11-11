@@ -1,3 +1,4 @@
+import { getLogger } from '../logger';
 import type { DAGContext } from './registry';
 
 /**
@@ -63,11 +64,17 @@ export function interpolateString(
   // Replace ${dagContext.cache.???} with cached values
   // Match ${dagContext.cache.property} or ${dagContext.cache.nested.property}
   result = result.replace(/\$\{dagContext\.cache\.([^}]+)\}/g, (match, cachePath) => {
-    const cachedValue = getNestedProperty(dagContext.cache, cachePath.trim());
+    const trimmedPath = cachePath.trim();
+    const cachedValue = getNestedProperty(dagContext.cache, trimmedPath);
     if (cachedValue === undefined) {
+      // Log warning if cache value not found (for debugging)
+      const logger = getLogger();
+      logger.debug(`[interpolation] Cache value not found for path: ${trimmedPath}, cache keys:`, Object.keys(dagContext.cache));
       // Return the original placeholder if the value is not found
       return match;
     }
+    const logger = getLogger();
+    logger.debug(`[interpolation] Replacing ${match} with cached value from path: ${trimmedPath}`);
     return valueToString(cachedValue);
   });
 
