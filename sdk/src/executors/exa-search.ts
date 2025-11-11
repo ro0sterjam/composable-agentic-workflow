@@ -32,6 +32,7 @@ export class ExaSearchExecutor<InputType = string, OutputType = ExaSearchResult>
       numResults: config.numResults ?? 10, // Default to 10
       contents: {
         text: true,
+        summary: true,
       },
     };
 

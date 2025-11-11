@@ -41,21 +41,22 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
       // Extract model name (remove provider prefix)
       const modelName = config.model.split('/')[1];
 
-      // Check if schema is an array type - OpenAI requires object type for response_format
+      // Check if schema is an object type - OpenAI requires object type for response_format
       const schema = config.schema as Record<string, unknown>;
-      const isArraySchema = schema.type === 'array';
+      const isObjectSchema = schema.type === 'object';
 
       let wrappedSchema: Record<string, unknown>;
       let needsUnwrap = false;
 
-      if (isArraySchema) {
-        // Wrap array schema in an object: { items: <array schema> }
+      if (!isObjectSchema) {
+        // Wrap non-object schema (array, string, number, boolean, etc.) in an object
+        // Use 'value' as the property name for non-object types
         wrappedSchema = {
           type: 'object',
           properties: {
-            items: schema,
+            value: schema,
           },
-          required: ['items'],
+          required: ['value'],
         };
         needsUnwrap = true;
       } else {
@@ -69,10 +70,10 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
         prompt: prompt,
       });
 
-      // Unwrap if we wrapped an array schema
+      // Unwrap if we wrapped a non-object schema
       if (needsUnwrap) {
-        const wrappedResult = result.object as { items: OutputType };
-        return wrappedResult.items;
+        const wrappedResult = result.object as { value: OutputType };
+        return wrappedResult.value;
       }
 
       return result.object as OutputType;

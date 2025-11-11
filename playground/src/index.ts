@@ -32,6 +32,32 @@ import {
 dotenv.config();
 
 /**
+ * Truncate output if it's too long
+ */
+function truncateOutput(output: unknown, maxLength: number = 500): unknown {
+  if (output === undefined || output === null) {
+    return output;
+  }
+
+  try {
+    const stringified = JSON.stringify(output, null, 2);
+    if (stringified.length <= maxLength) {
+      return output;
+    }
+    // Truncate and add indicator
+    const truncated = stringified.substring(0, maxLength);
+    return `${truncated}... (truncated, ${stringified.length} chars total)`;
+  } catch {
+    // If stringification fails, convert to string and truncate
+    const stringRep = String(output);
+    if (stringRep.length <= maxLength) {
+      return output;
+    }
+    return `${stringRep.substring(0, maxLength)}... (truncated, ${stringRep.length} chars total)`;
+  }
+}
+
+/**
  * Playground for testing the DAG SDK
  */
 
@@ -64,7 +90,21 @@ async function main() {
     .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
     .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
     .pipe(
-      new MapTransformerNode('mapText', new ExtractTransformerNode('extract', { property: 'text' }))
+      new MapTransformerNode(
+        'mapText',
+        new ExtractTransformerNode('extract', { property: 'summary' })
+      )
+    )
+    .pipe(
+      new MapTransformerNode(
+        'mapSummary',
+        new StructuredLLMTransformerNode('summary', {
+          model: 'openai/gpt-5',
+          schema: z.string(),
+          prompt:
+            'From the original query: "${dagContext.cache.query}", generate a summary of the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t relate to the query, return "No answer found".',
+        })
+      )
     )
     .pipe(new MapTransformerNode('mapPeek', new PeekTransformerNode('peek')))
     .terminate(new ConsoleTerminalNode('end'));
@@ -83,7 +123,8 @@ async function main() {
       if (nodeResult.error) {
         console.error(`Node ${nodeId} failed:`, nodeResult.error.message);
       } else {
-        console.log(`Node ${nodeId} completed with output:`, nodeResult.output);
+        const truncatedOutput = truncateOutput(nodeResult.output);
+        console.log(`Node ${nodeId} completed with output:`, truncatedOutput);
       }
     },
   });
@@ -94,7 +135,7 @@ async function main() {
     'Results:',
     Array.from(result.results.entries()).map(([id, r]) => ({
       nodeId: id,
-      output: r.output,
+      output: truncateOutput(r.output),
       error: r.error?.message,
     }))
   );
