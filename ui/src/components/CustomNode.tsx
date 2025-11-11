@@ -406,6 +406,11 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
                 Max Loops: {data.agentConfig.maxLoops}
               </div>
             )}
+            {data.agentConfig.schema && (
+              <div style={{ fontSize: '10px', opacity: 0.7, color: '#10b981' }}>
+                ✓ Structured Output
+              </div>
+            )}
           </div>
         )}
       </div>

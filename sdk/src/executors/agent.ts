@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { Experimental_Agent as Agent, jsonSchema, stepCountIs, tool } from 'ai';
+import { Experimental_Agent as Agent, generateObject, jsonSchema, stepCountIs, tool } from 'ai';
 
 import { executeDAGFromNode } from '../dag/executor';
 import type { OpenAIModel } from '../nodes/impl/models';
@@ -21,6 +21,7 @@ interface AgentTransformerNodeExecutorConfig {
     transformerId: string;
   }>;
   maxLoops?: number; // Maximum number of tool call loops (if not set, no limit)
+  schema?: Record<string, unknown>; // Optional JSON Schema for structured output
 }
 
 /**
@@ -351,9 +352,75 @@ export class AgentExecutor<InputType = string, OutputType = string>
       config.tools.map((t) => t.name).join(', ')
     );
 
+    // If schema is provided, use structured output
+    if (config.schema) {
+      logger.debug(`[AgentExecutor] Starting agent execution with structured output...`);
+      logger.warn(
+        `[AgentExecutor] Structured output with tools: The agent will generate text using tools, then parse the final output according to the schema.`
+      );
+
+      // Use agent with tools to generate text
+      const agent = new Agent(agentConfig);
+      const agentResult = await agent.generate({
+        prompt,
+      });
+
+      const agentText = agentResult.text || '';
+
+      logger.debug(
+        `[AgentExecutor] Agent completed with tools. Parsing output according to schema...`
+      );
+
+      // Parse the agent's text output according to the schema
+      // We'll use generateObject to parse/validate the text output
+      const schema = config.schema as Record<string, unknown>;
+      const isObjectSchema = schema.type === 'object';
+
+      let wrappedSchema: Record<string, unknown>;
+      let needsUnwrap = false;
+
+      if (!isObjectSchema) {
+        // Wrap non-object schema (array, string, number, boolean, etc.) in an object
+        // Use 'value' as the property name for non-object types
+        wrappedSchema = {
+          type: 'object',
+          properties: {
+            value: schema,
+          },
+          required: ['value'],
+        };
+        needsUnwrap = true;
+      } else {
+        wrappedSchema = schema;
+      }
+
+      // Use generateObject to parse the agent's output according to the schema
+      // This ensures the output conforms to the schema
+      const parseResult = await generateObject({
+        model: openai(modelName),
+        schema: jsonSchema(wrappedSchema),
+        prompt: `Parse the following text output from an AI agent and return it in the requested schema format:\n\n${agentText}`,
+        ...(system && {
+          system:
+            system +
+            '\n\nReturn only the parsed output in the requested schema format, without any additional explanation.',
+        }),
+      });
+
+      logger.debug(`[AgentExecutor] Agent execution with structured output completed`);
+
+      // Unwrap if we wrapped a non-object schema
+      if (needsUnwrap) {
+        const wrappedResult = parseResult.object as { value: OutputType };
+        return wrappedResult.value;
+      }
+
+      return parseResult.object as OutputType;
+    }
+
+    // No schema - use regular agent generation with tools
     const agent = new Agent(agentConfig);
 
-    // Generate response from the agent (non-streaming)
     logger.debug(`[AgentExecutor] Starting agent execution...`);
 
     const result = await agent.generate({

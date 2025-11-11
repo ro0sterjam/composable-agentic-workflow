@@ -26,11 +26,12 @@ interface AgentNodeEditorProps {
     system?: string;
     tools?: Tool[];
     maxLoops?: number;
+    schema?: string; // JSON Schema as string (optional)
   };
   availableTransformers?: Array<{ id: string; label: string; type: string }>;
   onSave: (
     label: string,
-    config: { model: string; system?: string; tools: Tool[]; maxLoops?: number }
+    config: { model: string; system?: string; tools: Tool[]; maxLoops?: number; schema?: string }
   ) => void;
   onClose: () => void;
 }
@@ -56,7 +57,11 @@ function AgentNodeEditor({
   const [maxLoops, setMaxLoops] = useState<string>(
     currentConfig?.maxLoops?.toString() || ''
   );
+  const [outputSchema, setOutputSchema] = useState<string>(
+    currentConfig?.schema || ''
+  );
   const [schemaErrors, setSchemaErrors] = useState<Record<number, string>>({});
+  const [outputSchemaError, setOutputSchemaError] = useState<string | null>(null);
 
   useEffect(() => {
     setLabel(currentLabel || '');
@@ -68,6 +73,7 @@ function AgentNodeEditor({
       ]
     );
     setMaxLoops(currentConfig?.maxLoops?.toString() || '');
+    setOutputSchema(currentConfig?.schema || '');
   }, [currentLabel, currentConfig]);
 
   const validateSchema = (schemaStr: string, index: number): boolean => {
@@ -88,6 +94,25 @@ function AgentNodeEditor({
         ...prev,
         [index]: `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`,
       }));
+      return false;
+    }
+  };
+
+  const validateOutputSchema = (schemaStr: string): boolean => {
+    if (!schemaStr.trim()) {
+      setOutputSchemaError(null);
+      return true; // Empty is valid (optional)
+    }
+    try {
+      const parsed = JSON.parse(schemaStr);
+      if (typeof parsed !== 'object' || parsed === null) {
+        setOutputSchemaError('Schema must be a valid JSON object');
+        return false;
+      }
+      setOutputSchemaError(null);
+      return true;
+    } catch (e) {
+      setOutputSchemaError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
       return false;
     }
   };
@@ -161,11 +186,17 @@ function AgentNodeEditor({
       };
     });
 
+    // Validate output schema if provided
+    if (outputSchema.trim() && !validateOutputSchema(outputSchema)) {
+      return;
+    }
+
     onSave(label, {
       model,
       ...(system && { system }),
       tools: toolsWithLabels,
       ...(maxLoops && { maxLoops: parseInt(maxLoops) }),
+      ...(outputSchema.trim() && { schema: outputSchema }),
     });
     onClose();
   };
@@ -479,6 +510,40 @@ function AgentNodeEditor({
             </div>
           </div>
 
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+              Output Schema (optional, JSON Schema for structured output)
+            </label>
+            <textarea
+              value={outputSchema}
+              onChange={(e) => {
+                setOutputSchema(e.target.value);
+                validateOutputSchema(e.target.value);
+              }}
+              placeholder='{"type": "object", "properties": {...}}'
+              rows={6}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#3a3a3a',
+                border: outputSchemaError ? '1px solid #ef4444' : '1px solid #4a4a4a',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '13px',
+                resize: 'vertical',
+                fontFamily: 'monospace',
+              }}
+            />
+            {outputSchemaError && (
+              <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
+                {outputSchemaError}
+              </div>
+            )}
+            <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px' }}>
+              Optional JSON Schema to structure the agent's output. If provided, the agent will parse its text output according to this schema.
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
             <button
               onClick={onClose}
@@ -503,25 +568,25 @@ function AgentNodeEditor({
             </button>
             <button
               onClick={handleSave}
-              disabled={Object.keys(schemaErrors).length > 0}
+              disabled={Object.keys(schemaErrors).length > 0 || !!outputSchemaError}
               style={{
                 padding: '10px 20px',
-                background: Object.keys(schemaErrors).length > 0 ? '#4a4a4a' : '#3b82f6',
+                background: Object.keys(schemaErrors).length > 0 || outputSchemaError ? '#4a4a4a' : '#3b82f6',
                 border: 'none',
                 borderRadius: '6px',
                 color: 'white',
-                cursor: Object.keys(schemaErrors).length > 0 ? 'not-allowed' : 'pointer',
+                cursor: Object.keys(schemaErrors).length > 0 || outputSchemaError ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: 500,
-                opacity: Object.keys(schemaErrors).length > 0 ? 0.5 : 1,
+                opacity: Object.keys(schemaErrors).length > 0 || outputSchemaError ? 0.5 : 1,
               }}
               onMouseEnter={(e) => {
-                if (Object.keys(schemaErrors).length === 0) {
+                if (Object.keys(schemaErrors).length === 0 && !outputSchemaError) {
                   e.currentTarget.style.background = '#2563eb';
                 }
               }}
               onMouseLeave={(e) => {
-                if (Object.keys(schemaErrors).length === 0) {
+                if (Object.keys(schemaErrors).length === 0 && !outputSchemaError) {
                   e.currentTarget.style.background = '#3b82f6';
                 }
               }}

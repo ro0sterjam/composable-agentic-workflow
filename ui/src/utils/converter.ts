@@ -177,6 +177,15 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
         if (node.data.agentConfig.maxLoops !== undefined) {
           config.maxLoops = node.data.agentConfig.maxLoops;
         }
+        if (node.data.agentConfig.schema) {
+          // Parse the schema string to JSON Schema object
+          try {
+            config.schema = JSON.parse(node.data.agentConfig.schema);
+          } catch {
+            // If parsing fails, use default object schema
+            config.schema = { type: 'object', properties: {} };
+          }
+        }
       } else {
         throw new Error(`Agent node ${node.id} requires configuration`);
       }

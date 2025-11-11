@@ -51,7 +51,7 @@ function LogPanel({ logs }: LogPanelProps) {
 
     // Filter by type
     if (selectedType !== 'all') {
-      const selectedHierarchy = getTypeHierarchy(selectedType);
+    const selectedHierarchy = getTypeHierarchy(selectedType);
       filtered = filtered.filter((log) => getTypeHierarchy(log.type) >= selectedHierarchy);
     }
 
@@ -176,7 +176,7 @@ function LogPanel({ logs }: LogPanelProps) {
               ? 'No logs yet. Run the DAG to see execution logs.'
               : textFilter
                 ? `No logs match "${textFilter}".`
-                : `No ${selectedType === 'all' ? '' : selectedType} logs to display.`}
+              : `No ${selectedType === 'all' ? '' : selectedType} logs to display.`}
           </div>
         ) : (
           filteredLogs.map((log) => (

@@ -57,6 +57,7 @@ export interface AgentTransformerNodeConfigInput {
   system?: string; // System prompt
   tools: AgentToolConfigInput[]; // Array of tools available to the agent
   maxLoops?: number; // Maximum number of tool call loops (if not set, no limit)
+  schema?: z.ZodType<unknown>; // Optional Zod schema for structured output
 }
 
 /**
@@ -67,6 +68,7 @@ export interface AgentTransformerNodeConfig {
   system?: string; // System prompt
   tools: AgentToolConfig[]; // Array of tools with transformerId
   maxLoops?: number; // Maximum number of tool call loops (if not set, no limit)
+  schema?: JSONSchema; // Optional JSON Schema for structured output
 }
 
 /**
@@ -102,6 +104,9 @@ export class AgentTransformerNode<InputType = string, OutputType = string> exten
       };
     });
 
+    // Convert output schema from Zod to JSON Schema if provided
+    const outputSchema = config.schema ? (zodToJsonSchema(config.schema) as JSONSchema) : undefined;
+
     super(
       id,
       'agent',
@@ -110,6 +115,7 @@ export class AgentTransformerNode<InputType = string, OutputType = string> exten
         ...(config.system && { system: config.system }),
         tools: toolsWithJsonSchema,
         ...(config.maxLoops !== undefined && { maxLoops: config.maxLoops }),
+        ...(outputSchema && { schema: outputSchema }),
       },
       label
     );

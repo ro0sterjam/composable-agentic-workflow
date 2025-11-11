@@ -75,6 +75,7 @@ interface NodeEditorProps {
       transformerLabel?: string;
     }>;
     maxLoops?: number;
+    schema?: string;
   };
   availableTransformers?: Array<{ id: string; label: string; type: string }>;
   onSave: (config: NodeConfig) => void;
@@ -137,6 +138,7 @@ export interface NodeConfig {
   };
   agentConfig?: {
     model?: string;
+    schema?: string;
     system?: string;
     tools?: Array<{
       name: string;
