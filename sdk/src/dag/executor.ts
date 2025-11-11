@@ -50,6 +50,46 @@ export interface ExecuteFromNodeOptions extends DAGExecutionOptions {
 }
 
 /**
+ * Validation result for DAG
+ */
+export interface DAGValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validate a DAG structure
+ * Checks for common issues like duplicate edges pointing to the same target
+ */
+export function validateDAG(dag: SerializedDAG): DAGValidationResult {
+  const errors: string[] = [];
+
+  // Check for duplicate edges with the same target (to)
+  const targetToEdges = new Map<string, SerializedEdge[]>();
+  for (const edge of dag.edges) {
+    if (!targetToEdges.has(edge.to)) {
+      targetToEdges.set(edge.to, []);
+    }
+    targetToEdges.get(edge.to)!.push(edge);
+  }
+
+  // Find targets with multiple incoming edges
+  for (const [targetId, edges] of targetToEdges.entries()) {
+    if (edges.length > 1) {
+      const sources = edges.map((e) => e.from).join(', ');
+      errors.push(
+        `Node "${targetId}" has multiple incoming connections (from: ${sources}). Input connectors cannot have multiple connections.`
+      );
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
  * Execute a serialized DAG
  */
 export async function executeDAG(
@@ -57,6 +97,15 @@ export async function executeDAG(
   options: DAGExecutionOptions = {}
 ): Promise<DAGExecutionResult> {
   const { executorRegistry = defaultExecutorRegistry, onNodeStart, onNodeComplete } = options;
+
+  // Validate DAG structure before execution
+  const validation = validateDAG(dag);
+  if (!validation.valid) {
+    const errorMessage = `DAG validation failed:\n${validation.errors.join('\n')}`;
+    const logger = getLogger();
+    logger.error(errorMessage);
+    throw new Error(errorMessage);
+  }
 
   // Build adjacency list for topological sort
   const nodes = new Map<string, SerializedNode>();
@@ -342,6 +391,15 @@ export async function executeDAGFromNode(
     nodes: subgraphNodes,
     edges: subgraphEdges,
   };
+
+  // Validate subgraph structure before execution
+  const subgraphValidation = validateDAG(subgraph);
+  if (!subgraphValidation.valid) {
+    const errorMessage = `Subgraph validation failed:\n${subgraphValidation.errors.join('\n')}`;
+    const logger = getLogger();
+    logger.error(errorMessage);
+    throw new Error(errorMessage);
+  }
 
   // Check if starting node is a source node
   const sourceExecutor = executorRegistry.getSource(startNode.type);

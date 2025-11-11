@@ -53,6 +53,37 @@ interface HistoryState {
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const edgesRef = useRef<Edge[]>([]);
+  const nodesRef = useRef<Node[]>([]);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+  
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  // Execution state
+  const [nodeExecutionStates, setNodeExecutionStates] = useState<Map<string, ExecutionState>>(new Map());
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // Define addLog early so it can be used in onConnect
+  const addLog = useCallback((type: LogEntry['type'], message: string, nodeId?: string) => {
+    setLogs((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        type,
+        message,
+        nodeId,
+      },
+    ]);
+  }, []);
+
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [connectionStart, setConnectionStart] = useState<{ nodeId: string; handleId: string; position: { x: number; y: number } } | null>(null);
@@ -62,27 +93,29 @@ function App() {
   const isDraggingConnectionRef = useRef(false);
   const modifierKeyPressedRef = useRef(false);
   
-  // Execution state
-  const [nodeExecutionStates, setNodeExecutionStates] = useState<Map<string, ExecutionState>>(new Map());
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  
   // Pan/selection state
   const [enablePanning, setEnablePanning] = useState(true);
   
   // Undo/Redo state
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const historyIndexRef = useRef(-1);
   const isUndoRedoRef = useRef(false);
   const saveHistoryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Keep historyIndexRef in sync with historyIndex state
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
 
   // Save current state to history
   const saveToHistory = useCallback(() => {
     if (isUndoRedoRef.current) return;
 
+    // Use refs to get the latest values instead of closure values
     const currentState: HistoryState = {
-      nodes: JSON.parse(JSON.stringify(nodes)),
-      edges: JSON.parse(JSON.stringify(edges)),
+      nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+      edges: JSON.parse(JSON.stringify(edgesRef.current)),
     };
 
     setHistory((prev) => {
@@ -96,7 +129,7 @@ function App() {
       return newHistory;
     });
     setHistoryIndex((prev) => Math.min(prev + 1, 49));
-  }, [nodes, edges, historyIndex]);
+  }, [historyIndex]);
 
   // Undo function
   const undo = useCallback(() => {
@@ -105,17 +138,18 @@ function App() {
     isUndoRedoRef.current = true;
     const previousIndex = historyIndex - 1;
     
-    if (previousIndex >= 0) {
-      const previousState = history[previousIndex];
-      setNodes(previousState.nodes);
-      setEdges(previousState.edges);
-      setHistoryIndex(previousIndex);
-    } else {
-      // Clear everything
-      setNodes([]);
-      setEdges([]);
-      setHistoryIndex(-1);
+    // Don't allow undo beyond the first history entry
+    if (previousIndex < 0) {
+      setTimeout(() => {
+        isUndoRedoRef.current = false;
+      }, 100);
+      return;
     }
+    
+    const previousState = history[previousIndex];
+    setNodes(previousState.nodes);
+    setEdges(previousState.edges);
+    setHistoryIndex(previousIndex);
 
     setTimeout(() => {
       isUndoRedoRef.current = false;
@@ -243,23 +277,63 @@ function App() {
     (params: Connection) => {
       // Prevent connections from/to transformer handles (bottom/top handles)
       if (params.sourceHandle === 'bottom' || params.targetHandle === 'top') {
+        // Mark as handled so menu doesn't show
+        connectionMadeRef.current = true;
+        setConnectionStart(null);
+        setMenuPosition(null);
         return;
       }
-      
+
+      // Validate: prevent multiple connections to the same target node
+      // Check current edges before updating
+      if (params.target) {
+        const existingEdgeToTarget = edgesRef.current.find((edge) => edge.target === params.target);
+        if (existingEdgeToTarget) {
+          // Log error - addLog will be available when this callback executes
+          if (typeof addLog === 'function') {
+            addLog(
+              'error',
+              `Cannot create connection: Node "${params.target}" already has an incoming connection from "${existingEdgeToTarget.source}". Input connectors cannot have multiple connections.`
+            );
+          }
+          // Mark as handled so menu doesn't show
+          connectionMadeRef.current = true;
+          setConnectionStart(null);
+          setMenuPosition(null);
+          return; // Reject the connection
+        }
+      }
+
+      // Connection is valid, add it
+      setEdges((eds) => {
+        const newEdges = addEdge(params, eds);
+        // Save to history immediately after state update with the new edges
+        setTimeout(() => {
+          // Use the new edges directly since we have them here
+          if (!isUndoRedoRef.current) {
+            const currentState: HistoryState = {
+              nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+              edges: JSON.parse(JSON.stringify(newEdges)),
+            };
+            setHistory((prev) => {
+              const newHistory = prev.slice(0, historyIndexRef.current + 1);
+              newHistory.push(currentState);
+              if (newHistory.length > 50) {
+                newHistory.shift();
+                return newHistory;
+              }
+              return newHistory;
+            });
+            setHistoryIndex((prev) => Math.min(prev + 1, 49));
+          }
+        }, 0);
+        return newEdges;
+      });
       connectionMadeRef.current = true;
-      setEdges((eds) => addEdge(params, eds));
       setConnectionStart(null);
       setMenuPosition(null);
-      
-      // Save to history after a short delay
-      if (saveHistoryTimeoutRef.current) {
-        clearTimeout(saveHistoryTimeoutRef.current);
-      }
-      saveHistoryTimeoutRef.current = setTimeout(() => {
-        saveToHistory();
-      }, 300);
     },
-    [setEdges, saveToHistory]
+    [setEdges, addLog]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -363,19 +437,6 @@ function App() {
     
     alert('DAG saved! JSON file downloaded.');
   }, [nodes, edges]);
-
-  const addLog = useCallback((type: LogEntry['type'], message: string, nodeId?: string) => {
-    setLogs((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        type,
-        message,
-        nodeId,
-      },
-    ]);
-  }, []);
 
 
   const onRunDAG = useCallback(async () => {
@@ -520,7 +581,29 @@ function App() {
         targetHandle: 'input',
       };
 
-      setEdges((eds) => addEdge(connection, eds));
+      setEdges((eds) => {
+        const newEdges = addEdge(connection, eds);
+        // Save to history immediately after state update with the new edges
+        setTimeout(() => {
+          if (!isUndoRedoRef.current) {
+            const currentState: HistoryState = {
+              nodes: JSON.parse(JSON.stringify(nodesRef.current)),
+              edges: JSON.parse(JSON.stringify(newEdges)),
+            };
+            setHistory((prev) => {
+              const newHistory = prev.slice(0, historyIndexRef.current + 1);
+              newHistory.push(currentState);
+              if (newHistory.length > 50) {
+                newHistory.shift();
+                return newHistory;
+              }
+              return newHistory;
+            });
+            setHistoryIndex((prev) => Math.min(prev + 1, 49));
+          }
+        }, 0);
+        return newEdges;
+      });
 
       setConnectionStart(null);
       setMenuPosition(null);
