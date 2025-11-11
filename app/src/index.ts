@@ -19,6 +19,7 @@ import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe.js';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search.js';
 import { ExtractExecutor } from '../../sdk/src/executors/extract.js';
+import { FilterExecutor } from '../../sdk/src/executors/filter.js';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap.js';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm.js';
@@ -88,6 +89,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
   defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer('extract', new ExtractExecutor());
+  defaultExecutorRegistry.registerTransformer('filter', new FilterExecutor());
   defaultExecutorRegistry.registerTransformer(
     'peek',
     new PeekTransformerExecutor((message: string, _data: unknown) => {

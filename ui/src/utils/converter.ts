@@ -104,6 +104,12 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         throw new Error(`Extract node ${node.id} requires a property path`);
       }
+    } else if (nodeType === 'filter') {
+      if (node.data.filterConfig?.expression) {
+        config.expression = node.data.filterConfig.expression;
+      } else {
+        throw new Error(`Filter node ${node.id} requires an expression`);
+      }
     }
 
   return {

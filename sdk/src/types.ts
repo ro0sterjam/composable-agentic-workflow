@@ -24,6 +24,7 @@ export const DEFAULT_NODE_TYPES = {
   DEDUPE: 'dedupe',
   CACHE: 'cache',
   EXTRACT: 'extract',
+  FILTER: 'filter',
 } as const;
 
 // Re-export node implementations
@@ -38,6 +39,7 @@ export {
   DedupeTransformerNode,
   CacheTransformerNode,
   ExtractTransformerNode,
+  FilterTransformerNode,
 } from './nodes';
 export type {
   SimpleLLMTransformerNodeConfig,
@@ -54,4 +56,5 @@ export type {
   DedupeMethod,
   CacheTransformerNodeConfig,
   ExtractTransformerNodeConfig,
+  FilterTransformerNodeConfig,
 } from './nodes';

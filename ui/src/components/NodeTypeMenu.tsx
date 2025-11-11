@@ -15,6 +15,7 @@ const nodeTypes = [
   { type: NodeType.DEDUPE, label: 'Dedupe', icon: '🔀' },
   { type: NodeType.CACHE, label: 'Cache', icon: '💾' },
   { type: NodeType.EXTRACT, label: 'Extract', icon: '📤' },
+  { type: NodeType.FILTER, label: 'Filter', icon: '🔍' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },

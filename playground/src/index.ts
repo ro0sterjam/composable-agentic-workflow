@@ -6,6 +6,7 @@ import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
 import { ExtractExecutor } from '../../sdk/src/executors/extract';
+import { FilterExecutor } from '../../sdk/src/executors/filter';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
@@ -26,6 +27,7 @@ import {
   DedupeTransformerNode,
   CacheTransformerNode,
   ExtractTransformerNode,
+  FilterTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -73,6 +75,7 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
   defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer('extract', new ExtractExecutor());
+  defaultExecutorRegistry.registerTransformer('filter', new FilterExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
@@ -90,10 +93,7 @@ async function main() {
     .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
     .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
     .pipe(
-      new MapTransformerNode(
-        'mapText',
-        new ExtractTransformerNode('extract', { property: 'summary' })
-      )
+      new MapTransformerNode('mapText', new ExtractTransformerNode('extract', { property: 'text' }))
     )
     .pipe(
       new MapTransformerNode(
@@ -102,11 +102,11 @@ async function main() {
           model: 'openai/gpt-5',
           schema: z.string(),
           prompt:
-            'From the original query: "${dagContext.cache.query}", generate a summary of the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t relate to the query, return "No answer found".',
+            'From the original query: "${dagContext.cache.query}", answer the query based on the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t help answer the query, return "No answer found".',
         })
       )
     )
-    .pipe(new MapTransformerNode('mapPeek', new PeekTransformerNode('peek')))
+    .pipe(new FilterTransformerNode('filter', { expression: 'input !== "No answer found"' }))
     .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);

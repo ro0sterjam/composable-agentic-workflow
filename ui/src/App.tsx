@@ -554,6 +554,9 @@ function App() {
                   ...(config.extractConfig !== undefined && {
                     extractConfig: config.extractConfig,
                   }),
+                  ...(config.filterConfig !== undefined && {
+                    filterConfig: config.filterConfig,
+                  }),
                 },
               }
             : node
@@ -705,6 +708,7 @@ function App() {
             const currentDedupeConfig = node.data.dedupeConfig;
             const currentCacheConfig = node.data.cacheConfig;
             const currentExtractConfig = node.data.extractConfig;
+            const currentFilterConfig = node.data.filterConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
 
@@ -739,6 +743,7 @@ function App() {
                 currentDedupeConfig={currentDedupeConfig}
                 currentCacheConfig={currentCacheConfig}
                 currentExtractConfig={currentExtractConfig}
+                currentFilterConfig={currentFilterConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}

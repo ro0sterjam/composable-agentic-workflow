@@ -7,6 +7,7 @@ import ExaSearchNodeEditor from './ExaSearchNodeEditor';
 import DedupeNodeEditor from './DedupeNodeEditor';
 import CacheNodeEditor from './CacheNodeEditor';
 import ExtractNodeEditor from './ExtractNodeEditor';
+import FilterNodeEditor from './FilterNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -50,6 +51,9 @@ interface NodeEditorProps {
   };
   currentExtractConfig?: {
     property: string;
+  };
+  currentFilterConfig?: {
+    expression: string;
   };
   currentMapConfig?: {
     transformerId?: string;
@@ -115,6 +119,9 @@ export interface NodeConfig {
   extractConfig?: {
     property: string;
   };
+  filterConfig?: {
+    expression: string;
+  };
 }
 
 function NodeEditor({
@@ -128,6 +135,7 @@ function NodeEditor({
   currentDedupeConfig,
   currentCacheConfig,
   currentExtractConfig,
+  currentFilterConfig,
   currentMapConfig,
   currentFlatmapConfig,
   availableTransformers = [],
@@ -262,6 +270,22 @@ function NodeEditor({
         currentConfig={currentExtractConfig}
         onSave={(label, config) => {
           onSave({ label, extractConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for FILTER nodes
+  if (nodeType === NodeType.FILTER) {
+    return (
+      <FilterNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentFilterConfig}
+        onSave={(label, config) => {
+          onSave({ label, filterConfig: config });
           onClose();
         }}
         onClose={onClose}

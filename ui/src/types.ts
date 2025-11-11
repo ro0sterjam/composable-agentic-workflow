@@ -16,6 +16,7 @@ export const NODE_TYPES = {
   DEDUPE: 'dedupe',
   CACHE: 'cache',
   EXTRACT: 'extract',
+  FILTER: 'filter',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc

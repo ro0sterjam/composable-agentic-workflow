@@ -14,5 +14,6 @@ export * from './impl/exa-search';
 export * from './impl/dedupe';
 export * from './impl/cache';
 export * from './impl/extract';
+export * from './impl/filter';
 export * from '../executors/registry';
 export * from '../executors/interpolation';
