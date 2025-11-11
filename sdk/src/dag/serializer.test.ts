@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 
 import { ConsoleTerminalNode } from '../nodes/impl/console';
+import { FlatMapTransformerNode } from '../nodes/impl/flatmap';
 import { LiteralSourceNode } from '../nodes/impl/literal';
 import { SimpleLLMTransformerNode } from '../nodes/impl/llm';
 import { MapTransformerNode } from '../nodes/impl/map';
 import { PeekTransformerNode } from '../nodes/impl/peek';
+import { StructuredLLMTransformerNode } from '../nodes/impl/structured-llm';
 
 import { serializeStandAloneNode } from './serializer';
 
@@ -321,5 +324,77 @@ describe('serializeStandAloneNode', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       new MapTransformerNode('map1', chainedTransformer as any, { parallel: true });
     }).toThrow('MapTransformerNode cannot accept a SequentialTransformerNode');
+  });
+
+  it('should serialize a FlatMapTransformerNode with nested transformer', () => {
+    // Create a transformer that outputs an array (for flatmap)
+    // Using StructuredLLM as an example that outputs arrays
+    const transformer = new StructuredLLMTransformerNode('llm', {
+      model: 'openai/gpt-5',
+      schema: z.array(z.string()),
+    });
+    const flatmapNode = new FlatMapTransformerNode('flatmap1', transformer, { parallel: true });
+    const source = new LiteralSourceNode('source1', { value: 'item1' });
+    const terminal = new ConsoleTerminalNode('terminal1');
+    const standalone = source.pipe(flatmapNode).terminate(terminal);
+
+    const result = serializeStandAloneNode(standalone);
+
+    expect(result).toEqual({
+      nodes: [
+        {
+          id: 'source1',
+          type: 'literal',
+          label: 'source1',
+          config: { value: 'item1' },
+        },
+        {
+          id: 'llm',
+          type: 'structured_llm',
+          label: 'llm',
+          config: expect.objectContaining({
+            model: 'openai/gpt-5',
+            schema: expect.any(Object),
+          }),
+        },
+        {
+          id: 'flatmap1',
+          type: 'flatmap',
+          label: 'flatmap1',
+          config: {
+            parallel: true,
+            transformerId: 'llm',
+          },
+        },
+        {
+          id: 'terminal1',
+          type: 'console',
+          label: 'terminal1',
+        },
+      ],
+      edges: [
+        {
+          from: 'source1',
+          to: 'flatmap1',
+        },
+        {
+          from: 'flatmap1',
+          to: 'terminal1',
+        },
+      ],
+    });
+  });
+
+  it('should reject a FlatMapTransformerNode with a chained transformer at runtime', () => {
+    // Create a chained transformer: peek -> llm
+    const peek = new PeekTransformerNode('peek1', { label: 'Debug' });
+    const llm = new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-5' });
+    const chainedTransformer = peek.pipe(llm);
+
+    // FlatMapTransformerNode should reject SequentialTransformerNode at runtime
+    expect(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      new FlatMapTransformerNode('flatmap1', chainedTransformer as any, { parallel: true });
+    }).toThrow('FlatMapTransformerNode cannot accept a SequentialTransformerNode');
   });
 });

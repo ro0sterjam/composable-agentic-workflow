@@ -10,6 +10,7 @@ export const NODE_TYPES = {
   SIMPLE_LLM: 'simple_llm',
   STRUCTURED_LLM: 'structured_llm',
   MAP: 'map',
+  FLATMAP: 'flatmap',
   PEEK: 'peek',
 } as const;
 

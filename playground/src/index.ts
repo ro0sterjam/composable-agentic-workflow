@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
 import { MapTransformerExecutor } from '../../sdk/src/executors/map';
@@ -16,6 +17,7 @@ import {
   defaultExecutorRegistry,
   StructuredLLMTransformerNode,
   MapTransformerNode,
+  FlatMapTransformerNode,
   PeekTransformerNode,
 } from '../../sdk/src/index';
 
@@ -36,6 +38,7 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
   const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })

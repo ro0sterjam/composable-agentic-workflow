@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
+import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap.js';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm.js';
 import { MapTransformerExecutor } from '../../sdk/src/executors/map.js';
@@ -87,6 +88,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
     })
   );
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
 
   // Load DAG
   let serializedDAG: SerializedDAG;

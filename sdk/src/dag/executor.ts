@@ -136,13 +136,13 @@ export async function executeDAG(
     }
   }
 
-  // Collect all node IDs that are referenced by other nodes (e.g., transformerId in map nodes)
+  // Collect all node IDs that are referenced by other nodes (e.g., transformerId in map/flatmap nodes)
   const referencedNodeIds = new Set<string>();
   for (const node of dag.nodes) {
     const config = node.config as Record<string, unknown> | undefined;
     if (config && typeof config === 'object') {
-      // Check for transformerId in map nodes
-      if (node.type === 'map' && 'transformerId' in config) {
+      // Check for transformerId in map and flatmap nodes
+      if ((node.type === 'map' || node.type === 'flatmap') && 'transformerId' in config) {
         const transformerId = config.transformerId;
         if (typeof transformerId === 'string') {
           referencedNodeIds.add(transformerId);

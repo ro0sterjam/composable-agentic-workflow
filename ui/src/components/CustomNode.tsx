@@ -22,6 +22,11 @@ interface CustomNodeData {
     transformerLabel?: string; // Label of the transformer node for display
     parallel?: boolean;
   };
+  flatmapConfig?: {
+    transformerId?: string;
+    transformerLabel?: string; // Label of the transformer node for display
+    parallel?: boolean;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -31,6 +36,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.SIMPLE_LLM]: { bg: '#e0e7ff', border: '#6366f1', text: '#312e81' },
   [NodeType.STRUCTURED_LLM]: { bg: '#fce7f3', border: '#ec4899', text: '#831843' },
   [NodeType.MAP]: { bg: '#e6fffa', border: '#38b2ac', text: '#234e52' },
+  [NodeType.FLATMAP]: { bg: '#f0fdf4', border: '#22c55e', text: '#14532d' },
   [NodeType.PEEK]: { bg: '#f0f9ff', border: '#0ea5e9', text: '#0c4a6e' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
 };
@@ -40,6 +46,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.SIMPLE_LLM]: '🤖',
   [NodeType.STRUCTURED_LLM]: '🎯',
   [NodeType.MAP]: '🗺️',
+  [NodeType.FLATMAP]: '📋',
   [NodeType.PEEK]: '👁️',
   [NodeType.CONSOLE]: '📥',
 };

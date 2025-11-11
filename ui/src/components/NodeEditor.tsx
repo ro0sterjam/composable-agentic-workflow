@@ -23,6 +23,10 @@ interface NodeEditorProps {
     transformerId?: string;
     parallel?: boolean;
   };
+  currentFlatmapConfig?: {
+    transformerId?: string;
+    parallel?: boolean;
+  };
   availableTransformers?: Array<{ id: string; label: string; type: string }>;
   onSave: (config: NodeConfig) => void;
   onClose: () => void;
@@ -46,6 +50,11 @@ export interface NodeConfig {
     transformerLabel?: string;
     parallel?: boolean;
   };
+  flatmapConfig?: {
+    transformerId?: string;
+    transformerLabel?: string;
+    parallel?: boolean;
+  };
 }
 
 function NodeEditor({
@@ -56,6 +65,7 @@ function NodeEditor({
   currentLLMConfig,
   currentStructuredLLMConfig,
   currentMapConfig,
+  currentFlatmapConfig,
   availableTransformers = [],
   onSave,
   onClose,
@@ -287,6 +297,195 @@ function NodeEditor({
                   onSave({ 
                     label, 
                     mapConfig: { 
+                      transformerId, 
+                      transformerLabel: selectedTransformer?.label,
+                      parallel 
+                    } 
+                  });
+                  onClose();
+                }}
+                style={{
+                  padding: '10px 20px',
+                  background: '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#2563eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#3b82f6';
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Special editor for FLATMAP nodes (same as MAP)
+  if (nodeType === NodeType.FLATMAP) {
+    const [parallel, setParallel] = useState(currentFlatmapConfig?.parallel ?? true);
+    const [transformerId, setTransformerId] = useState(currentFlatmapConfig?.transformerId || '');
+
+    useEffect(() => {
+      setParallel(currentFlatmapConfig?.parallel ?? true);
+      setTransformerId(currentFlatmapConfig?.transformerId || '');
+    }, [currentFlatmapConfig]);
+
+    const selectedTransformer = availableTransformers.find((t) => t.id === transformerId);
+
+    return (
+      <>
+        <div
+          className="node-editor-overlay"
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            className="node-editor"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#2a2a2a',
+              border: '1px solid #4a4a4a',
+              borderRadius: '12px',
+              padding: '24px',
+              minWidth: '400px',
+              maxWidth: '500px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              zIndex: 2001,
+            }}
+          >
+            <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '18px', fontWeight: 600 }}>
+              Configure FlatMap Node
+            </h2>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+                Label
+              </label>
+              <input
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Enter node label"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#3a3a3a',
+                  border: '1px solid #4a4a4a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px',
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+                Transformer Node
+              </label>
+              {availableTransformers.length > 0 ? (
+                <select
+                  value={transformerId}
+                  onChange={(e) => setTransformerId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#3a3a3a',
+                    border: '1px solid #4a4a4a',
+                    borderRadius: '6px',
+                    color: 'white',
+                    fontSize: '14px',
+                  }}
+                >
+                  <option value="">Select a transformer...</option>
+                  {availableTransformers.map((transformer) => (
+                    <option key={transformer.id} value={transformer.id}>
+                      {transformer.label} ({transformer.type})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ padding: '12px', background: '#1a1a1a', borderRadius: '6px', color: '#6b7280', fontSize: '12px' }}>
+                  No transformer nodes available. Add a Simple LLM, Structured LLM, or Peek node to the graph first.
+                </div>
+              )}
+              {selectedTransformer && (
+                <div style={{ marginTop: '8px', padding: '8px', background: '#1a1a1a', borderRadius: '6px', fontSize: '12px', color: '#22c55e' }}>
+                  ✓ Selected: {selectedTransformer.label} ({selectedTransformer.type})
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#9ca3af',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={parallel}
+                  onChange={(e) => setParallel(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Run in parallel</span>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '10px 20px',
+                  background: '#3a3a3a',
+                  border: '1px solid #4a4a4a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#4a4a4a';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#3a3a3a';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const selectedTransformer = availableTransformers.find((t) => t.id === transformerId);
+                  onSave({ 
+                    label, 
+                    flatmapConfig: { 
                       transformerId, 
                       transformerLabel: selectedTransformer?.label,
                       parallel 

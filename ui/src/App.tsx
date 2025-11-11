@@ -288,6 +288,7 @@ function App() {
           id: nodeId,
           ...(type === NodeType.LITERAL && { value: '' }),
           ...(type === NodeType.MAP && { mapConfig: { parallel: true } }),
+          ...(type === NodeType.FLATMAP && { flatmapConfig: { parallel: true } }),
         },
       };
 
@@ -492,7 +493,8 @@ function App() {
           nodeType,
           id: nodeId,
           ...(nodeType === NodeType.LITERAL && { value: '' }),
-          ...(nodeType === NodeType.MAP && { mapConfig: { parallel: true } }),
+                  ...(nodeType === NodeType.MAP && { mapConfig: { parallel: true } }),
+                  ...(nodeType === NodeType.FLATMAP && { flatmapConfig: { parallel: true } }),
         },
       };
 
@@ -536,6 +538,9 @@ function App() {
                   }),
                   ...(config.mapConfig !== undefined && {
                     mapConfig: config.mapConfig,
+                  }),
+                  ...(config.flatmapConfig !== undefined && {
+                    flatmapConfig: config.flatmapConfig,
                   }),
                 },
               }
@@ -685,6 +690,7 @@ function App() {
             const currentLLMConfig = node.data.llmConfig;
             const currentStructuredLLMConfig = node.data.structuredLLMConfig;
             const currentMapConfig = node.data.mapConfig;
+            const currentFlatmapConfig = node.data.flatmapConfig;
 
             // Get available transformer nodes (exclude source, terminal, and map nodes)
             const transformerNodeTypes: NodeType[] = [
@@ -712,6 +718,7 @@ function App() {
                 currentLLMConfig={currentLLMConfig}
                 currentStructuredLLMConfig={currentStructuredLLMConfig}
                 currentMapConfig={currentMapConfig}
+                currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}
                 onSave={(config) => onNodeSave(editingNodeId, config)}
                 onClose={() => setEditingNodeId(null)}

@@ -51,6 +51,15 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         config.parallel = true;
       }
+    } else if (nodeType === 'flatmap') {
+      if (node.data.flatmapConfig) {
+        config.parallel = node.data.flatmapConfig.parallel ?? true;
+        if (node.data.flatmapConfig.transformerId) {
+          config.transformerId = node.data.flatmapConfig.transformerId;
+        }
+      } else {
+        config.parallel = true;
+      }
     }
 
   return {

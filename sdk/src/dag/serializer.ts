@@ -160,6 +160,17 @@ function extractNodesAndEdges(
     }
   }
 
+  // Special handling for flatmap nodes - need to serialize the nested transformer
+  if (nodeType === 'flatmap') {
+    const flatmapNode = node as any;
+    if (flatmapNode.transformer) {
+      // Recursively extract the transformer node (so it's added to the nodes array)
+      // This will flatten sequential nodes and extract all nested nodes
+      extractNodesAndEdges(flatmapNode.transformer, state);
+      // The transformerId is already in the config from the FlatMapTransformerNode constructor
+    }
+  }
+
   // This is a regular node, add it to the nodes map
   const serializedNode: SerializedNode = {
     id: node.id,
