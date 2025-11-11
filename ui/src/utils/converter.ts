@@ -60,6 +60,29 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         config.parallel = true;
       }
+    } else if (nodeType === 'exa_search') {
+      if (node.data.exaSearchConfig) {
+        config.type = node.data.exaSearchConfig.type || 'auto';
+        config.numResults = node.data.exaSearchConfig.numResults || 10;
+        if (node.data.exaSearchConfig.category) {
+          config.category = node.data.exaSearchConfig.category;
+        }
+        if (node.data.exaSearchConfig.includeDomains && node.data.exaSearchConfig.includeDomains.length > 0) {
+          config.includeDomains = node.data.exaSearchConfig.includeDomains;
+        }
+        if (node.data.exaSearchConfig.excludeDomains && node.data.exaSearchConfig.excludeDomains.length > 0) {
+          config.excludeDomains = node.data.exaSearchConfig.excludeDomains;
+        }
+        if (node.data.exaSearchConfig.includeText && node.data.exaSearchConfig.includeText.length > 0) {
+          config.includeText = node.data.exaSearchConfig.includeText;
+        }
+        if (node.data.exaSearchConfig.excludeText && node.data.exaSearchConfig.excludeText.length > 0) {
+          config.excludeText = node.data.exaSearchConfig.excludeText;
+        }
+      } else {
+        config.type = 'auto';
+        config.numResults = 10;
+      }
     }
 
   return {

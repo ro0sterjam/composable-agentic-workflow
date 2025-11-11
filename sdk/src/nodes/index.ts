@@ -10,4 +10,5 @@ export * from './impl/structured-llm';
 export * from './impl/map';
 export * from './impl/flatmap';
 export * from './impl/peek';
+export * from './impl/exa-search';
 export * from '../executors/registry';

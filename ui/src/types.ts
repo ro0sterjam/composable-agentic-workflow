@@ -12,6 +12,7 @@ export const NODE_TYPES = {
   MAP: 'map',
   FLATMAP: 'flatmap',
   PEEK: 'peek',
+  EXA_SEARCH: 'exa_search',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc

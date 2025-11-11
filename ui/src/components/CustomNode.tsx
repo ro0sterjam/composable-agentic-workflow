@@ -27,6 +27,24 @@ interface CustomNodeData {
     transformerLabel?: string; // Label of the transformer node for display
     parallel?: boolean;
   };
+  exaSearchConfig?: {
+    type?: 'auto' | 'fast' | 'neural';
+    numResults?: number;
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?:
+      | 'company'
+      | 'research paper'
+      | 'news'
+      | 'pdf'
+      | 'github'
+      | 'tweet'
+      | 'personal site'
+      | 'linkedin profile'
+      | 'financial report';
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -39,6 +57,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.FLATMAP]: { bg: '#f0fdf4', border: '#22c55e', text: '#14532d' },
   [NodeType.PEEK]: { bg: '#f0f9ff', border: '#0ea5e9', text: '#0c4a6e' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+  [NodeType.EXA_SEARCH]: { bg: '#fef3f4', border: '#f87171', text: '#991b1b' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -49,6 +68,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.FLATMAP]: '📋',
   [NodeType.PEEK]: '👁️',
   [NodeType.CONSOLE]: '📥',
+  [NodeType.EXA_SEARCH]: '🔍',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -193,6 +213,48 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             ) : (
               <div style={{ opacity: 0.6, fontStyle: 'italic' }}>
                 No transformer selected
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.FLATMAP && data.flatmapConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.flatmapConfig.transformerId ? (
+              <>
+                <div style={{ marginBottom: '4px' }}>
+                  Transformer: {data.flatmapConfig.transformerLabel || data.flatmapConfig.transformerId}
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                  {data.flatmapConfig.parallel ? '⚡ Parallel' : '➡️ Sequential'}
+                </div>
+              </>
+            ) : (
+              <div style={{ opacity: 0.6, fontStyle: 'italic' }}>
+                No transformer selected
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.EXA_SEARCH && data.exaSearchConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.exaSearchConfig.type && (
+              <div style={{ marginBottom: '4px' }}>
+                Type: {data.exaSearchConfig.type}
+              </div>
+            )}
+            {data.exaSearchConfig.numResults !== undefined && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
+                Results: {data.exaSearchConfig.numResults}
+              </div>
+            )}
+            {data.exaSearchConfig.category && (
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                Category: {data.exaSearchConfig.category}
+              </div>
+            )}
+            {data.exaSearchConfig.includeDomains && data.exaSearchConfig.includeDomains.length > 0 && (
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                Include: {data.exaSearchConfig.includeDomains.join(', ')}
               </div>
             )}
           </div>

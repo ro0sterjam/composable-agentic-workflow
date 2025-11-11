@@ -3,6 +3,7 @@ import { NodeType } from '../types';
 import DataNodeEditor from './DataNodeEditor';
 import LLMNodeEditor from './LLMNodeEditor';
 import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
+import ExaSearchNodeEditor from './ExaSearchNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -18,6 +19,24 @@ interface NodeEditorProps {
     model?: 'openai/gpt-5';
     schema?: string;
     prompt?: string;
+  };
+  currentExaSearchConfig?: {
+    type?: 'auto' | 'fast' | 'neural';
+    numResults?: number;
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?:
+      | 'company'
+      | 'research paper'
+      | 'news'
+      | 'pdf'
+      | 'github'
+      | 'tweet'
+      | 'personal site'
+      | 'linkedin profile'
+      | 'financial report';
   };
   currentMapConfig?: {
     transformerId?: string;
@@ -55,6 +74,24 @@ export interface NodeConfig {
     transformerLabel?: string;
     parallel?: boolean;
   };
+  exaSearchConfig?: {
+    type?: 'auto' | 'fast' | 'neural';
+    numResults?: number;
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?:
+      | 'company'
+      | 'research paper'
+      | 'news'
+      | 'pdf'
+      | 'github'
+      | 'tweet'
+      | 'personal site'
+      | 'linkedin profile'
+      | 'financial report';
+  };
 }
 
 function NodeEditor({
@@ -64,6 +101,7 @@ function NodeEditor({
   currentValue,
   currentLLMConfig,
   currentStructuredLLMConfig,
+  currentExaSearchConfig,
   currentMapConfig,
   currentFlatmapConfig,
   availableTransformers = [],
@@ -134,6 +172,22 @@ function NodeEditor({
         currentConfig={currentStructuredLLMConfig}
         onSave={(label, config) => {
           onSave({ label, structuredLLMConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for EXA_SEARCH nodes
+  if (nodeType === NodeType.EXA_SEARCH) {
+    return (
+      <ExaSearchNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentExaSearchConfig}
+        onSave={(label, config) => {
+          onSave({ label, exaSearchConfig: config });
           onClose();
         }}
         onClose={onClose}

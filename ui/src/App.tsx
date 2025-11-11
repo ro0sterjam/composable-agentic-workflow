@@ -542,6 +542,9 @@ function App() {
                   ...(config.flatmapConfig !== undefined && {
                     flatmapConfig: config.flatmapConfig,
                   }),
+                  ...(config.exaSearchConfig !== undefined && {
+                    exaSearchConfig: config.exaSearchConfig,
+                  }),
                 },
               }
             : node
@@ -689,6 +692,7 @@ function App() {
             const currentValue = node.data.value;
             const currentLLMConfig = node.data.llmConfig;
             const currentStructuredLLMConfig = node.data.structuredLLMConfig;
+            const currentExaSearchConfig = node.data.exaSearchConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
 
@@ -696,6 +700,7 @@ function App() {
             const transformerNodeTypes: NodeType[] = [
               NodeType.SIMPLE_LLM,
               NodeType.STRUCTURED_LLM,
+              NodeType.EXA_SEARCH,
               NodeType.PEEK,
             ];
             const availableTransformers = nodes
@@ -717,6 +722,7 @@ function App() {
                 currentValue={currentValue}
                 currentLLMConfig={currentLLMConfig}
                 currentStructuredLLMConfig={currentStructuredLLMConfig}
+                currentExaSearchConfig={currentExaSearchConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}

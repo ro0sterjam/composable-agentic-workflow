@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
@@ -19,6 +20,7 @@ import {
   MapTransformerNode,
   FlatMapTransformerNode,
   PeekTransformerNode,
+  ExaSearchTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -36,6 +38,7 @@ async function main() {
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
+  defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
@@ -49,6 +52,7 @@ async function main() {
         schema: z.array(z.string()),
       })
     )
+    .pipe(new FlatMapTransformerNode('flatmap', new ExaSearchTransformerNode('exa_search')))
     .pipe(new MapTransformerNode('map', new PeekTransformerNode('peek')))
     .terminate(new ConsoleTerminalNode('end'));
 

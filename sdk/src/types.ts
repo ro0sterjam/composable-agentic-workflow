@@ -20,6 +20,7 @@ export const DEFAULT_NODE_TYPES = {
   STRUCTURED_LLM: 'structured_llm',
   MAP: 'map',
   PEEK: 'peek',
+  EXA_SEARCH: 'exa_search',
 } as const;
 
 // Re-export node implementations
@@ -30,6 +31,7 @@ export {
   StructuredLLMTransformerNode,
   MapTransformerNode,
   PeekTransformerNode,
+  ExaSearchTransformerNode,
 } from './nodes';
 export type {
   SimpleLLMTransformerNodeConfig,
@@ -37,4 +39,9 @@ export type {
   JSONSchema,
   MapTransformerNodeConfig,
   PeekTransformerNodeConfig,
+  ExaSearchTransformerNodeConfig,
+  ExaSearchType,
+  ExaSearchCategory,
+  ExaSearchResponse,
+  ExaSearchResult,
 } from './nodes';
