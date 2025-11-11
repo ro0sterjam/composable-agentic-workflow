@@ -3,7 +3,6 @@
  */
 
 export * from './types';
-export * from './literal';
-export * from './console';
-export * from './source';
-export * from './registry';
+export * from './impl/literal';
+export * from './impl/console';
+export * from '../executors/registry';

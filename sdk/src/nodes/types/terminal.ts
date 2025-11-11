@@ -5,22 +5,18 @@ import type { NodeType } from '../../types';
  * This is an abstract class that terminal nodes should extend
  * Implementation: ConsoleTerminalNode (type: 'console')
  * @template InputType - The type of input data
+ * @template ConfigType - The type of configuration for this node
  */
-export abstract class TerminalNode<InputType> {
+export abstract class TerminalNode<InputType, ConfigType = unknown> {
   id: string;
   type: NodeType;
   label?: string;
+  config?: ConfigType;
 
-  constructor(id: string, type: NodeType, label?: string) {
+  constructor(id: string, type: NodeType, config?: ConfigType, label?: string) {
     this.id = id;
     this.type = type;
+    this.config = config;
     this.label = label || id;
   }
-
-  /**
-   * Execute the terminal node with input
-   * @param input - The input data for this node
-   * @returns void (terminal nodes don't produce output)
-   */
-  abstract execute(input: InputType): Promise<void> | void;
 }

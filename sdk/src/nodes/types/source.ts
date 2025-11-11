@@ -9,23 +9,20 @@ import type { TransformerNode } from './transformer';
  * This is an abstract class that source nodes should extend
  * Implementation: LiteralSourceNode (type: 'literal')
  * @template OutputType - The type of output data
+ * @template ConfigType - The type of configuration for this node
  */
-export abstract class SourceNode<OutputType> {
+export abstract class SourceNode<OutputType, ConfigType = unknown> {
   id: string;
   type: NodeType;
   label?: string;
+  config?: ConfigType;
 
-  constructor(id: string, type: NodeType, label?: string) {
+  constructor(id: string, type: NodeType, config?: ConfigType, label?: string) {
     this.id = id;
     this.type = type;
+    this.config = config;
     this.label = label || id;
   }
-
-  /**
-   * Execute the source node (no input required)
-   * @returns The output data, either synchronously or as a Promise
-   */
-  abstract execute(): Promise<OutputType> | OutputType;
 
   /**
    * Compose this source node with a transformer node
@@ -33,9 +30,9 @@ export abstract class SourceNode<OutputType> {
    * @param transformer - The transformer node to execute after this source
    * @returns A SequentialSourceNode that composes this source and the transformer
    */
-  pipe<NewOutputType>(
-    transformer: TransformerNode<OutputType, NewOutputType>
-  ): SourceNode<NewOutputType> {
+  pipe<NewOutputType, NewConfigType = unknown>(
+    transformer: TransformerNode<OutputType, NewOutputType, NewConfigType>
+  ): SourceNode<NewOutputType, unknown> {
     return new SequentialSourceNode(this, transformer);
   }
 
@@ -45,7 +42,9 @@ export abstract class SourceNode<OutputType> {
    * @param terminal - The terminal node to execute after this source
    * @returns A SequentialSourceTerminalNode that composes this source and the terminal
    */
-  terminate(terminal: TerminalNode<OutputType>): StandAloneNode {
+  terminate<NewConfigType = unknown>(
+    terminal: TerminalNode<OutputType, NewConfigType>
+  ): StandAloneNode<unknown> {
     return new SequentialSourceTerminalNode(this, terminal);
   }
 }
@@ -58,30 +57,25 @@ export abstract class SourceNode<OutputType> {
  * @template IntermediateType - The output type of the source node (and input type of the transformer)
  * @template OutputType - The output type of the transformer node (and this node)
  */
-class SequentialSourceNode<IntermediateType, OutputType> extends SourceNode<OutputType> {
+class SequentialSourceNode<IntermediateType, OutputType> extends SourceNode<
+  OutputType,
+  unknown
+> {
   type: NodeType;
-  source: SourceNode<IntermediateType>;
-  transformer: TransformerNode<IntermediateType, OutputType>;
+  source: SourceNode<IntermediateType, unknown>;
+  transformer: TransformerNode<IntermediateType, OutputType, unknown>;
 
   constructor(
-    source: SourceNode<IntermediateType>,
-    transformer: TransformerNode<IntermediateType, OutputType>,
+    source: SourceNode<IntermediateType, unknown>,
+    transformer: TransformerNode<IntermediateType, OutputType, unknown>,
     type: NodeType = 'sequential_source',
     label?: string
   ) {
     const id = `${source.id}_pipe_${transformer.id}`;
-    super(id, type, label);
+    super(id, type, undefined, label);
     this.type = type;
     this.source = source;
     this.transformer = transformer;
-  }
-
-  async execute(): Promise<OutputType> {
-    // Execute source node (no input needed)
-    const intermediate = await this.source.execute();
-
-    // Execute transformer with the intermediate result
-    return await this.transformer.execute(intermediate);
   }
 }
 
@@ -92,29 +86,21 @@ class SequentialSourceNode<IntermediateType, OutputType> extends SourceNode<Outp
  *
  * @template OutputType - The output type of the source node (and input type of the terminal)
  */
-class SequentialSourceTerminalNode<OutputType> extends StandAloneNode {
+class SequentialSourceTerminalNode<OutputType> extends StandAloneNode<unknown> {
   type: NodeType;
-  source: SourceNode<OutputType>;
-  terminal: TerminalNode<OutputType>;
+  source: SourceNode<OutputType, unknown>;
+  terminal: TerminalNode<OutputType, unknown>;
 
   constructor(
-    source: SourceNode<OutputType>,
-    terminal: TerminalNode<OutputType>,
+    source: SourceNode<OutputType, unknown>,
+    terminal: TerminalNode<OutputType, unknown>,
     type: NodeType = 'sequential_source_terminal',
     label?: string
   ) {
     const id = `${source.id}_terminate_${terminal.id}`;
-    super(id, type, label);
+    super(id, type, undefined, label);
     this.type = type;
     this.source = source;
     this.terminal = terminal;
-  }
-
-  async execute(): Promise<void> {
-    // Execute source node (no input needed)
-    const output = await this.source.execute();
-
-    // Execute terminal node with the output
-    await this.terminal.execute(output);
   }
 }
