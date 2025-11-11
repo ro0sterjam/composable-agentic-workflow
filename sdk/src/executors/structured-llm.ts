@@ -69,13 +69,13 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
 
       // Wrap JSON Schema using jsonSchema helper so generateObject can use it
       const logger = getLogger();
-      logger.debug(`[StructuredLLMExecutor] Executing structured LLM for input: ${input}`);
+      logger.debug(`[StructuredLLMExecutor] Executing structured LLM`);
       const result = await generateObject({
         model: openai(modelName),
         schema: jsonSchema(wrappedSchema),
         prompt: prompt,
       });
-      logger.debug(`[StructuredLLMExecutor] Structured LLM executed for input: ${input}`);
+      logger.debug(`[StructuredLLMExecutor] Structured LLM executed`);
 
       // Unwrap if we wrapped a non-object schema
       if (needsUnwrap) {

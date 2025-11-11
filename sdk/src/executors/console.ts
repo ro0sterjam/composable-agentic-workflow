@@ -8,6 +8,6 @@ export class ConsoleTerminalExecutor<InputType> implements TerminalExecutor<Inpu
   execute(input: InputType, _config: undefined, dagContext: DAGContext): void {
     const logger = getLoggerFromContext(dagContext);
     const message = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
-    logger.info(`ConsoleTerminal: ${message}`);
+    logger.info(message);
   }
 }

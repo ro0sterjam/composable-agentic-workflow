@@ -213,8 +213,14 @@ export async function executeDAG(
   while (queue.length > 0) {
     const nodeId = queue.shift()!;
     const node = nodes.get(nodeId)!;
+    const nodeLabel = node.label || nodeId;
+    const logger = getLogger();
+    const startTime = Date.now();
 
     try {
+      // Log node start
+      logger.info(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
+
       // Notify start callback
       if (onNodeStart) {
         onNodeStart(nodeId);
@@ -226,6 +232,9 @@ export async function executeDAG(
       // Execute the node
       const output = await executeNode(node, input, executorRegistry, dag, cache);
 
+      // Calculate execution time
+      const executionTime = Date.now() - startTime;
+
       // Store output
       nodeOutputs.set(nodeId, output);
 
@@ -234,6 +243,9 @@ export async function executeDAG(
         output,
       };
       results.set(nodeId, result);
+
+      // Log node completion with timing
+      logger.info(`[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`);
 
       // Notify callback
       if (onNodeComplete) {
@@ -251,11 +263,17 @@ export async function executeDAG(
         }
       }
     } catch (error) {
+      const executionTime = Date.now() - startTime;
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      
       const result: NodeExecutionResult = {
         nodeId,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: errorObj,
       };
       results.set(nodeId, result);
+
+      // Log node completion with error and timing
+      logger.error(`[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`);
 
       if (onNodeComplete) {
         onNodeComplete(nodeId, result);
@@ -531,8 +549,13 @@ export async function executeDAGFromNode(
   while (queue.length > 0) {
     const nodeId = queue.shift()!;
     const node = nodes.get(nodeId)!;
+    const nodeLabel = node.label || nodeId;
+    const startTime = Date.now();
 
     try {
+      // Log node start
+      logger.info(`[DAG] Starting node execution: ${nodeLabel} (${node.type})`);
+
       // Notify start callback
       if (onNodeStart) {
         onNodeStart(nodeId);
@@ -569,6 +592,9 @@ export async function executeDAGFromNode(
         `[executeDAGFromNode] Node '${nodeId}' execution completed, output type: ${typeof output}`
       );
 
+      // Calculate execution time
+      const executionTime = Date.now() - startTime;
+
       // Store output
       nodeOutputs.set(nodeId, output);
 
@@ -577,6 +603,9 @@ export async function executeDAGFromNode(
         output,
       };
       results.set(nodeId, result);
+
+      // Log node completion with timing
+      logger.info(`[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`);
 
       // Notify callback
       if (onNodeComplete) {
@@ -594,11 +623,17 @@ export async function executeDAGFromNode(
         }
       }
     } catch (error) {
+      const executionTime = Date.now() - startTime;
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      
       const result: NodeExecutionResult = {
         nodeId,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: errorObj,
       };
       results.set(nodeId, result);
+
+      // Log node completion with error and timing
+      logger.error(`[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`);
 
       if (onNodeComplete) {
         onNodeComplete(nodeId, result);
