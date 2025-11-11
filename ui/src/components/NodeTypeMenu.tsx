@@ -13,6 +13,7 @@ const nodeTypes = [
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯' },
   { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍' },
   { type: NodeType.DEDUPE, label: 'Dedupe', icon: '🔀' },
+  { type: NodeType.CACHE, label: 'Cache', icon: '💾' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },

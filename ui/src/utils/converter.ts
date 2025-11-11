@@ -92,6 +92,12 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       } else {
         config.method = 'first';
       }
+    } else if (nodeType === 'cache') {
+      if (node.data.cacheConfig?.property) {
+        config.property = node.data.cacheConfig.property;
+      } else {
+        throw new Error(`Cache node ${node.id} requires a property path`);
+      }
     }
 
   return {

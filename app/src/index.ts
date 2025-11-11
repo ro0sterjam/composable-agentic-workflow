@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 
 import dotenv from 'dotenv';
 
+import { CacheExecutor } from '../../sdk/src/executors/cache.js';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe.js';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search.js';
@@ -84,6 +85,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
   defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
   defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
+  defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer(
     'peek',
     new PeekTransformerExecutor((message: string, _data: unknown) => {

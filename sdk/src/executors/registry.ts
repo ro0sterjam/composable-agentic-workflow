@@ -6,6 +6,7 @@ import type { SerializedDAG } from '../dag/serializer';
 export interface DAGContext {
   dag: SerializedDAG;
   executorRegistry: ExecutorRegistry;
+  cache: Record<string, unknown>;
 }
 
 /**

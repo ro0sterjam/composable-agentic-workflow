@@ -30,6 +30,9 @@ export class ExaSearchExecutor<InputType = string, OutputType = ExaSearchResult>
       query: query,
       type: config.type ?? 'auto', // Default to 'auto'
       numResults: config.numResults ?? 10, // Default to 10
+      contents: {
+        text: true,
+      },
     };
 
     // Add optional parameters

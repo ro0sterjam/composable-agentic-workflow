@@ -3,6 +3,7 @@ import { generateObject, jsonSchema } from 'ai';
 
 import type { JSONSchema } from '../nodes/impl/structured-llm';
 
+import { interpolateString } from './interpolation';
 import type { TransformerExecutor, DAGContext } from './registry';
 
 /**
@@ -23,10 +24,12 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
   async execute(
     input: InputType,
     config: StructuredLLMTransformerNodeExecutorConfig,
-    _dagContext: DAGContext
+    dagContext: DAGContext
   ): Promise<OutputType> {
-    // Interpolate input into prompt
-    const prompt = config.prompt?.replace(/\$\{input\}/g, String(input)) || String(input);
+    // Interpolate input and cache values into prompt
+    const prompt = config.prompt
+      ? interpolateString(config.prompt, input, dagContext)
+      : String(input);
 
     // Call OpenAI API using generateObject
     if (config.model === 'openai/gpt-5') {

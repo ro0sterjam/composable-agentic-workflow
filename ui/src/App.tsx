@@ -548,6 +548,9 @@ function App() {
                   ...(config.dedupeConfig !== undefined && {
                     dedupeConfig: config.dedupeConfig,
                   }),
+                  ...(config.cacheConfig !== undefined && {
+                    cacheConfig: config.cacheConfig,
+                  }),
                 },
               }
             : node
@@ -697,6 +700,7 @@ function App() {
             const currentStructuredLLMConfig = node.data.structuredLLMConfig;
             const currentExaSearchConfig = node.data.exaSearchConfig;
             const currentDedupeConfig = node.data.dedupeConfig;
+            const currentCacheConfig = node.data.cacheConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
 
@@ -728,6 +732,7 @@ function App() {
                 currentStructuredLLMConfig={currentStructuredLLMConfig}
                 currentExaSearchConfig={currentExaSearchConfig}
                 currentDedupeConfig={currentDedupeConfig}
+                currentCacheConfig={currentCacheConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}

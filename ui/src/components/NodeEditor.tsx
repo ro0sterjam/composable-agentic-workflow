@@ -5,6 +5,7 @@ import LLMNodeEditor from './LLMNodeEditor';
 import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
 import ExaSearchNodeEditor from './ExaSearchNodeEditor';
 import DedupeNodeEditor from './DedupeNodeEditor';
+import CacheNodeEditor from './CacheNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -42,6 +43,9 @@ interface NodeEditorProps {
   currentDedupeConfig?: {
     byProperty?: string;
     method?: 'first' | 'last' | 'most frequent';
+  };
+  currentCacheConfig?: {
+    property: string;
   };
   currentMapConfig?: {
     transformerId?: string;
@@ -101,6 +105,9 @@ export interface NodeConfig {
     byProperty?: string;
     method?: 'first' | 'last' | 'most frequent';
   };
+  cacheConfig?: {
+    property: string;
+  };
 }
 
 function NodeEditor({
@@ -112,6 +119,7 @@ function NodeEditor({
   currentStructuredLLMConfig,
   currentExaSearchConfig,
   currentDedupeConfig,
+  currentCacheConfig,
   currentMapConfig,
   currentFlatmapConfig,
   availableTransformers = [],
@@ -214,6 +222,22 @@ function NodeEditor({
         currentConfig={currentDedupeConfig}
         onSave={(label, config) => {
           onSave({ label, dedupeConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for CACHE nodes
+  if (nodeType === NodeType.CACHE) {
+    return (
+      <CacheNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentCacheConfig}
+        onSave={(label, config) => {
+          onSave({ label, cacheConfig: config });
           onClose();
         }}
         onClose={onClose}

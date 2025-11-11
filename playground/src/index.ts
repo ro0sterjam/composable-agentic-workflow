@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
+import { CacheExecutor } from '../../sdk/src/executors/cache';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
@@ -22,6 +23,7 @@ import {
   PeekTransformerNode,
   ExaSearchTransformerNode,
   DedupeTransformerNode,
+  CacheTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -41,12 +43,14 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
   defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
   defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
+  defaultExecutorRegistry.registerTransformer('cache', new CacheExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
   const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
+    .pipe(new CacheTransformerNode('cache', { property: 'query' }))
     .pipe(
       new StructuredLLMTransformerNode('llm', {
         model: 'openai/gpt-5',

@@ -22,6 +22,7 @@ export const DEFAULT_NODE_TYPES = {
   PEEK: 'peek',
   EXA_SEARCH: 'exa_search',
   DEDUPE: 'dedupe',
+  CACHE: 'cache',
 } as const;
 
 // Re-export node implementations
@@ -34,6 +35,7 @@ export {
   PeekTransformerNode,
   ExaSearchTransformerNode,
   DedupeTransformerNode,
+  CacheTransformerNode,
 } from './nodes';
 export type {
   SimpleLLMTransformerNodeConfig,
@@ -48,4 +50,5 @@ export type {
   ExaSearchResult,
   DedupeTransformerNodeConfig,
   DedupeMethod,
+  CacheTransformerNodeConfig,
 } from './nodes';

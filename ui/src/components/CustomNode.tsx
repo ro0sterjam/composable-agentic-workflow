@@ -49,6 +49,9 @@ interface CustomNodeData {
     byProperty?: string;
     method?: 'first' | 'last' | 'most frequent';
   };
+  cacheConfig?: {
+    property: string;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -63,6 +66,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
   [NodeType.EXA_SEARCH]: { bg: '#fef3f4', border: '#f87171', text: '#991b1b' },
   [NodeType.DEDUPE]: { bg: '#f5f3ff', border: '#a78bfa', text: '#5b21b6' },
+  [NodeType.CACHE]: { bg: '#ecfdf5', border: '#10b981', text: '#065f46' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -75,6 +79,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.CONSOLE]: '📥',
   [NodeType.EXA_SEARCH]: '🔍',
   [NodeType.DEDUPE]: '🔀',
+  [NodeType.CACHE]: '💾',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -280,6 +285,15 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             {!data.dedupeConfig.byProperty && (
               <div style={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic' }}>
                 Deduping by value
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.CACHE && data.cacheConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.cacheConfig.property && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
+                Property: {data.cacheConfig.property}
               </div>
             )}
           </div>

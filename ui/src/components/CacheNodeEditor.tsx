@@ -1,36 +1,37 @@
 import React, { useState, useEffect } from 'react';
 
-interface LLMNodeEditorProps {
+interface CacheNodeEditorProps {
   nodeId: string;
   currentLabel?: string;
   currentConfig?: {
-    model?: 'openai/gpt-5';
-    system?: string;
-    prompt?: string;
+    property: string;
   };
-  onSave: (label: string, config: { model: 'openai/gpt-5'; system?: string; prompt?: string }) => void;
+  onSave: (label: string, config: { property: string }) => void;
   onClose: () => void;
 }
 
-function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }: LLMNodeEditorProps) {
+function CacheNodeEditor({
+  nodeId,
+  currentLabel,
+  currentConfig,
+  onSave,
+  onClose,
+}: CacheNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
-  const [model, setModel] = useState<'openai/gpt-5'>((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
-  const [system, setSystem] = useState(currentConfig?.system || '');
-  const [prompt, setPrompt] = useState(currentConfig?.prompt || '');
+  const [property, setProperty] = useState(currentConfig?.property || '');
 
   useEffect(() => {
     setLabel(currentLabel || '');
-    setModel((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
-    setSystem(currentConfig?.system || '');
-    setPrompt(currentConfig?.prompt || '');
+    setProperty(currentConfig?.property || '');
   }, [currentLabel, currentConfig]);
 
   const handleSave = () => {
-    onSave(label, {
-      model,
-      ...(system && { system }),
-      ...(prompt && { prompt }),
-    });
+    if (!property.trim()) {
+      alert('Property path is required');
+      return;
+    }
+
+    onSave(label, { property: property.trim() });
     onClose();
   };
 
@@ -67,7 +68,7 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
           }}
         >
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '18px', fontWeight: 600 }}>
-            Configure Simple LLM Node
+            Configure Cache Node
           </h2>
 
           <div style={{ marginBottom: '20px' }}>
@@ -94,11 +95,13 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              Model
+              Property Path <span style={{ color: '#ef4444' }}>*</span>
             </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value as 'openai/gpt-5')}
+            <input
+              type="text"
+              value={property}
+              onChange={(e) => setProperty(e.target.value)}
+              placeholder="e.g., searchResults or data.results"
               style={{
                 width: '100%',
                 padding: '10px',
@@ -107,56 +110,14 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',
-              }}
-            >
-              <option value="openai/gpt-5">OpenAI GPT-5</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              System Prompt (optional, supports ${'{input}'} and ${'{dagContext.cache.???}'})
-            </label>
-            <textarea
-              value={system}
-              onChange={(e) => setSystem(e.target.value)}
-              placeholder="Enter system prompt"
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: '#3a3a3a',
-                border: '1px solid #4a4a4a',
-                borderRadius: '6px',
-                color: 'white',
-                fontSize: '14px',
-                resize: 'vertical',
-                fontFamily: 'inherit',
               }}
             />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              User Prompt (optional, use ${'{input}'} to interpolate input, ${'{dagContext.cache.???}'} for cached values)
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter user prompt (e.g., 'Say hello to: ${input}' or 'Search results: ${dagContext.cache.searchResults}')"
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: '#3a3a3a',
-                border: '1px solid #4a4a4a',
-                borderRadius: '6px',
-                color: 'white',
-                fontSize: '14px',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-              }}
-            />
+            <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280' }}>
+              The property path where the cached value will be stored. Use dot notation (e.g., "user.id") for nested properties.
+              <br />
+              <br />
+              Access cached values in prompts using: <code style={{ background: '#1a1a1a', padding: '2px 4px', borderRadius: '3px' }}>{'${dagContext.cache.property}'}</code>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -209,5 +170,5 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
   );
 }
 
-export default LLMNodeEditor;
+export default CacheNodeEditor;
 

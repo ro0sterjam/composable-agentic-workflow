@@ -12,4 +12,6 @@ export * from './impl/flatmap';
 export * from './impl/peek';
 export * from './impl/exa-search';
 export * from './impl/dedupe';
+export * from './impl/cache';
 export * from '../executors/registry';
+export * from '../executors/interpolation';

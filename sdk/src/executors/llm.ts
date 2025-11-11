@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 
 import type { SimpleLLMTransformerNodeConfig } from '../nodes/impl/llm';
 
+import { interpolateString } from './interpolation';
 import type { TransformerExecutor, DAGContext } from './registry';
 
 /**
@@ -14,10 +15,12 @@ export class SimpleLLMExecutor<InputType = string, OutputType = string>
   async execute(
     input: InputType,
     config: SimpleLLMTransformerNodeConfig,
-    _dagContext: DAGContext
+    dagContext: DAGContext
   ): Promise<OutputType> {
-    // Interpolate input into prompt
-    const prompt = config.prompt?.replace(/\$\{input\}/g, String(input)) || String(input);
+    // Interpolate input and cache values into prompt
+    const prompt = config.prompt
+      ? interpolateString(config.prompt, input, dagContext)
+      : String(input);
 
     // Call OpenAI API using generateText
     if (config.model === 'openai/gpt-5') {
@@ -29,9 +32,14 @@ export class SimpleLLMExecutor<InputType = string, OutputType = string>
       // Extract model name (remove provider prefix)
       const modelName = config.model.split('/')[1];
 
+      // Interpolate system prompt if provided
+      const system = config.system
+        ? interpolateString(config.system, input, dagContext)
+        : undefined;
+
       const result = await generateText({
         model: openai(modelName),
-        system: config.system,
+        system: system,
         prompt: prompt,
       });
 

@@ -189,12 +189,12 @@ function StructuredLLMNodeEditor({
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              User Prompt (optional, use ${'{input}'} to interpolate input)
+              User Prompt (optional, use ${'{input}'} to interpolate input, ${'{dagContext.cache.???}'} for cached values)
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter user prompt (e.g., 'Generate data for: ${input}')"
+              placeholder="Enter user prompt (e.g., 'Generate data for: ${input}' or 'Based on: ${dagContext.cache.searchResults}')"
               rows={3}
               style={{
                 width: '100%',

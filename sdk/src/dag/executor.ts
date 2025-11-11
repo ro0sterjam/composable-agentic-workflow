@@ -81,6 +81,9 @@ export async function executeDAG(
   const nodeOutputs = new Map<string, unknown>();
   const results = new Map<string, NodeExecutionResult>();
 
+  // Create cache that lives for the lifetime of the DAG execution
+  const cache: Record<string, unknown> = {};
+
   // Topological sort and execution
   while (queue.length > 0) {
     const nodeId = queue.shift()!;
@@ -91,7 +94,7 @@ export async function executeDAG(
       const input = getNodeInput(nodeId, dag.edges, nodeOutputs);
 
       // Execute the node
-      const output = await executeNode(node, input, executorRegistry, dag);
+      const output = await executeNode(node, input, executorRegistry, dag, cache);
 
       // Store output
       nodeOutputs.set(nodeId, output);
@@ -220,10 +223,11 @@ async function executeNode(
   node: SerializedNode,
   input: unknown,
   executorRegistry: ExecutorRegistry,
-  dag: SerializedDAG
+  dag: SerializedDAG,
+  cache: Record<string, unknown>
 ): Promise<unknown> {
   const nodeType = node.type;
-  const dagContext: DAGContext = { dag, executorRegistry };
+  const dagContext: DAGContext = { dag, executorRegistry, cache };
 
   // Try to find an executor for this node type
   const sourceExecutor = executorRegistry.getSource(nodeType);

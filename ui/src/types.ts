@@ -14,6 +14,7 @@ export const NODE_TYPES = {
   PEEK: 'peek',
   EXA_SEARCH: 'exa_search',
   DEDUPE: 'dedupe',
+  CACHE: 'cache',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc
