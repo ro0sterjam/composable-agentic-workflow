@@ -1,31 +1,19 @@
-import type { BaseNode, Port } from '../types';
-import { NodeType } from '../types';
-import { NodeBuilder } from './base-builder';
+import { TerminalNode } from './types';
 
 /**
- * Console sink node - implementation of Sink (takes input, logs to console, no output)
+ * Console terminal node - implementation of Terminal (takes input, logs to console, no output)
+ * @template InputType - The type of input data
  */
-export interface ConsoleSinkNode extends BaseNode {
-  type: NodeType.CONSOLE;
-  inputPorts: Port[];
-  execute: (input: unknown) => Promise<void> | void;
-}
+export class ConsoleTerminalNode<InputType> extends TerminalNode<InputType> {
+  type: 'console';
 
-/**
- * Builder for console sink nodes
- */
-export class ConsoleSinkBuilder extends NodeBuilder<ConsoleSinkNode> {
-  constructor(dag: import('../fluent-builder').FluentDAGBuilder, node: ConsoleSinkNode) {
-    super(dag, node);
-    // Define execute function that logs to console
-    node.execute = (input: unknown) => {
-      console.log('ConsoleSink:', input);
-    };
+  constructor(id: string, label?: string) {
+    super(id, 'console', label);
+    this.type = 'console';
   }
 
-  inputPorts(ports: Port[]): this {
-    this.node.inputPorts = ports;
-    return this;
+  execute(input: InputType): void {
+    console.log('ConsoleTerminal:', input);
   }
 }
 

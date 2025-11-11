@@ -9,11 +9,19 @@
     "build": "tsc",
     "dev": "tsc --watch"
   },
-  "keywords": ["dag", "graph", "composable", "search"],
+  "keywords": [
+    "dag",
+    "graph",
+    "composable",
+    "search"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.65",
+    "ai": "^5.0.92"
   }
 }
-

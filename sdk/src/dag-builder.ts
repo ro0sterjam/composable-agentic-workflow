@@ -1,5 +1,5 @@
-import { DAG, Node, NodeId, Connection, PortId, DAGData, NodeType } from './types';
-import type { ConditionalNode, LoopNode, FanOutNode, AggregatorNode, LiteralNode, ConsoleSinkNode } from './nodes';
+import type { LiteralSourceNode, ConsoleTerminalNode } from './nodes';
+import { DAG, Node, NodeId, Connection, PortId, DAGData, DEFAULT_NODE_TYPES } from './types';
 
 /**
  * DAG Builder and Manager
@@ -160,50 +160,37 @@ export class DAGBuilder {
    */
   toJSON(): DAGData {
     const nodes: Record<NodeId, any> = {};
-    
+
     for (const [id, node] of this.dag.nodes.entries()) {
       const serializable: any = {
         id: node.id,
         type: node.type,
         label: node.label,
-        metadata: node.metadata,
+        metadata:
+          'metadata' in node
+            ? (node as { metadata?: Record<string, unknown> }).metadata
+            : undefined,
       };
 
-      // Check for execution-like nodes (LLM, EXA_SEARCH, etc.)
-      if (node.type === NodeType.LLM || node.type === NodeType.EXA_SEARCH) {
+      // Check for execution-like nodes (EXA_SEARCH, etc.)
+      if (node.type === DEFAULT_NODE_TYPES.EXA_SEARCH) {
         const execNode = node as { inputPorts: any[]; outputPorts: any[] };
         serializable.inputPorts = execNode.inputPorts;
         serializable.outputPorts = execNode.outputPorts;
-      } else if (node.type === NodeType.CONDITIONAL) {
-        const condNode = node as ConditionalNode;
-        serializable.inputPorts = condNode.inputPorts;
-        serializable.trueOutputPort = condNode.trueOutputPort;
-        serializable.falseOutputPort = condNode.falseOutputPort;
-      } else if (node.type === NodeType.LOOP) {
-        const loopNode = node as LoopNode;
-        serializable.inputPorts = loopNode.inputPorts;
-        serializable.outputPorts = loopNode.outputPorts;
-        serializable.maxIterations = loopNode.maxIterations;
-        // Note: subDag would need to be serialized recursively
-        // For now, we'll skip it or serialize it separately
-      } else if (node.type === NodeType.FAN_OUT) {
-        const fanOutNode = node as FanOutNode;
-        serializable.inputPorts = fanOutNode.inputPorts;
-        serializable.outputBranches = fanOutNode.outputBranches.map(branch => ({
-          port: branch.port,
-          // subDag would need recursive serialization
-        }));
-      } else if (node.type === NodeType.AGGREGATOR) {
-        const aggNode = node as AggregatorNode;
-        serializable.inputPorts = aggNode.inputPorts;
-        serializable.outputPorts = aggNode.outputPorts;
-      } else if (node.type === NodeType.LITERAL) {
-        const literalNode = node as LiteralNode;
-        serializable.outputPorts = literalNode.outputPorts;
+      } else if (node.type === DEFAULT_NODE_TYPES.LLM) {
+        const llmNode = node as
+          | import('./nodes/llm').LLMTransformerNode<any>
+          | import('./nodes/llm').LLMWithStructuredTransformerNode<any, any>;
+        serializable.model = llmNode.model;
+        if ('schema' in llmNode) {
+          serializable.schema = (llmNode as { schema: unknown }).schema;
+          serializable.mode = (llmNode as { mode?: 'auto' | 'json' | 'tool' }).mode;
+        }
+      } else if (node.type === DEFAULT_NODE_TYPES.LITERAL) {
+        const literalNode = node as LiteralSourceNode<any>;
         serializable.value = literalNode.value;
-      } else if (node.type === NodeType.CONSOLE) {
-        const consoleNode = node as ConsoleSinkNode;
-        serializable.inputPorts = consoleNode.inputPorts;
+      } else if (node.type === DEFAULT_NODE_TYPES.CONSOLE) {
+        // Console sink node - no additional serialization needed
       }
 
       nodes[id] = serializable;
@@ -223,7 +210,7 @@ export class DAGBuilder {
    */
   static fromJSON(data: DAGData): DAGBuilder {
     const builder = new DAGBuilder(data.id);
-    
+
     // Note: This creates placeholder nodes without functions
     // In a real implementation, you'd need to restore functions from metadata or configuration
     for (const [id, nodeData] of Object.entries(data.nodes)) {
@@ -248,4 +235,3 @@ export class DAGBuilder {
     return builder;
   }
 }
-

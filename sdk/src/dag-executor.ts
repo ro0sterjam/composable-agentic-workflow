@@ -1,6 +1,4 @@
-import { DAG, Node, NodeId, Connection, NodeType } from './types';
-import type { LiteralNode, LLMNode, ConditionalNode, ConsoleSinkNode, AggregatorNode, ExaSearchNode } from './nodes';
-import type { DAGConfig } from './dag-config';
+import { DAG, Node, NodeId, Connection, TransformerNode } from './types';
 
 export type ExecutionState = 'idle' | 'running' | 'completed' | 'failed';
 
@@ -23,30 +21,14 @@ export interface ExecutionContext {
 export class DAGExecutor {
   private dag: DAG;
   private context: ExecutionContext;
-  private config: DAGConfig;
 
-  constructor(dag: DAG, config?: DAGConfig) {
+  constructor(dag: DAG) {
     this.dag = dag;
-    this.config = config || {};
     this.context = {
       nodeOutputs: new Map(),
       nodeStates: new Map(),
       errors: new Map(),
     };
-  }
-
-  /**
-   * Get the configuration
-   */
-  getConfig(): DAGConfig {
-    return this.config;
-  }
-
-  /**
-   * Update configuration
-   */
-  setConfig(config: DAGConfig): void {
-    this.config = config;
   }
 
   /**
@@ -93,7 +75,7 @@ export class DAGExecutor {
    */
   private findEntryNodes(): NodeId[] {
     const entryNodes: NodeId[] = [];
-    
+
     // If entry node is explicitly set, use it
     if (this.dag.entryNodeId && this.dag.nodes.has(this.dag.entryNodeId)) {
       entryNodes.push(this.dag.entryNodeId);
@@ -102,7 +84,7 @@ export class DAGExecutor {
 
     // Otherwise, find nodes with no incoming connections
     for (const nodeId of this.dag.nodes.keys()) {
-      const incoming = this.dag.connections.filter(conn => conn.toNodeId === nodeId);
+      const incoming = this.dag.connections.filter((conn) => conn.toNodeId === nodeId);
       if (incoming.length === 0) {
         entryNodes.push(nodeId);
       }
@@ -120,8 +102,8 @@ export class DAGExecutor {
     for (const nodeId of this.dag.nodes.keys()) {
       if (executed.has(nodeId)) continue;
 
-      const incoming = this.dag.connections.filter(conn => conn.toNodeId === nodeId);
-      
+      const incoming = this.dag.connections.filter((conn) => conn.toNodeId === nodeId);
+
       // For nodes with no dependencies, they're ready
       if (incoming.length === 0) {
         ready.push(nodeId);
@@ -129,39 +111,19 @@ export class DAGExecutor {
       }
 
       // Check if all dependencies are executed and have outputs
-      const allDependenciesReady = incoming.every(conn => {
+      const allDependenciesReady = incoming.every((conn) => {
         if (!executed.has(conn.fromNodeId)) {
           return false;
         }
-        
+
         // Check if the source node has output on the expected port
         const fromNode = this.dag.nodes.get(conn.fromNodeId);
         if (!fromNode) return false;
 
-        // For conditional nodes, check if the connection is on the correct branch
-        if (fromNode.type === NodeType.CONDITIONAL) {
-          const conditionalNode = fromNode as ConditionalNode;
-          const outputs = this.context.nodeOutputs.get(conn.fromNodeId);
-          if (!outputs) return false;
-          
-          // Check if this connection is on the active branch
-          const hasTrueOutput = outputs.has(conditionalNode.trueOutputPort.id);
-          const hasFalseOutput = outputs.has(conditionalNode.falseOutputPort.id);
-          
-          // If connecting to true port, must have true output
-          if (conn.fromPortId === conditionalNode.trueOutputPort.id) {
-            return hasTrueOutput;
-          }
-          // If connecting to false port, must have false output
-          if (conn.fromPortId === conditionalNode.falseOutputPort.id) {
-            return hasFalseOutput;
-          }
-        }
-
-        // For other nodes, just check if they're executed
+        // Check if they're executed
         return true;
       });
-      
+
       if (allDependenciesReady) {
         ready.push(nodeId);
       }
@@ -175,7 +137,7 @@ export class DAGExecutor {
    */
   private getNodeInput(nodeId: NodeId, portId: string): unknown {
     const connection = this.dag.connections.find(
-      conn => conn.toNodeId === nodeId && conn.toPortId === portId
+      (conn) => conn.toNodeId === nodeId && conn.toPortId === portId
     );
 
     if (!connection) {
@@ -193,11 +155,15 @@ export class DAGExecutor {
   /**
    * Execute a single node
    */
-  private async executeNode(nodeId: NodeId, onStateChange?: (nodeId: NodeId, state: ExecutionState) => void): Promise<void> {
+  private async executeNode(
+    nodeId: NodeId,
+    onStateChange?: (nodeId: NodeId, state: ExecutionState) => void
+  ): Promise<void> {
     const node = this.dag.nodes.get(nodeId);
     if (!node) {
       throw new Error(`Node ${nodeId} not found`);
     }
+
 
     // Mark as running
     this.context.nodeStates.set(nodeId, 'running');
@@ -206,110 +172,32 @@ export class DAGExecutor {
     try {
       let output: unknown;
 
-      switch (node.type) {
-        case NodeType.LITERAL: {
-          const literalNode = node as LiteralNode;
-          output = literalNode.value;
-          break;
-        }
+      // Handle different node types
+      // Source nodes and Standalone nodes have execute() with no parameters
+      // Transformer and Terminal nodes have execute(input) with one parameter
+      // Check if this is a source or standalone node by checking node type
+      // Source nodes: 'literal' (produces output)
+      // Standalone nodes: (produces no output, side effect only)
+      // For now, we check the node type, but this could be extended
+      const isSourceNode = node.type === 'literal'; // Add other source node types here as needed
+      // TODO: Add standalone node type detection when standalone nodes are implemented
 
-        case NodeType.LLM: {
-          const llmNode = node as LLMNode;
-          const input = this.getNodeInput(nodeId, 'input');
-          // Use the node's execute function, which calls executeLLMNode internally
-          output = await llmNode.execute(input, this.config);
-          break;
-        }
-
-        case NodeType.EXA_SEARCH: {
-          const exaNode = node as ExaSearchNode;
-          const input = this.getNodeInput(nodeId, 'input');
-          // Use the node's execute function, which calls executeExaSearchNode internally
-          output = await exaNode.execute(input, this.config);
-          break;
-        }
-
-        case NodeType.CONDITIONAL: {
-          const conditionalNode = node as ConditionalNode;
-          const input = this.getNodeInput(nodeId, 'input');
-          const conditionResult = await conditionalNode.condition(input);
-          // Store output on the appropriate port (true or false)
-          const outputs = this.context.nodeOutputs.get(nodeId) || new Map();
-          if (conditionResult) {
-            outputs.set(conditionalNode.trueOutputPort.id, input);
-          } else {
-            outputs.set(conditionalNode.falseOutputPort.id, input);
-          }
-          this.context.nodeOutputs.set(nodeId, outputs);
-          output = input; // Pass input through
-          break;
-        }
-
-        case NodeType.CONSOLE: {
-          const consoleNode = node as ConsoleSinkNode;
-          const input = this.getNodeInput(nodeId, 'input');
-          
-          // Capture console output by temporarily overriding console.log
-          const originalConsoleLog = console.log;
-          const capturedLogs: string[] = [];
-          
-          console.log = (...args: unknown[]) => {
-            const logMessage = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
-            capturedLogs.push(logMessage);
-            originalConsoleLog.apply(console, args);
-          };
-          
-          try {
-            // Execute the console node (which will call console.log)
-            await consoleNode.execute(input);
-            
-            // Also log the input directly if no logs were captured
-            // This ensures we always have output even if the execute function doesn't call console.log
-            if (capturedLogs.length === 0) {
-              const inputLog = typeof input === 'object' 
-                ? JSON.stringify(input, null, 2) 
-                : String(input);
-              capturedLogs.push(inputLog);
-              originalConsoleLog('ConsoleSink:', input);
-            }
-            
-            // Store captured logs in the execution context for retrieval
-            if (capturedLogs.length > 0) {
-              const outputs = this.context.nodeOutputs.get(nodeId) || new Map();
-              outputs.set('_console_logs', capturedLogs);
-              this.context.nodeOutputs.set(nodeId, outputs);
-            }
-          } finally {
-            console.log = originalConsoleLog;
-          }
-          
-          output = undefined; // Console nodes don't have output
-          break;
-        }
-
-        case NodeType.AGGREGATOR: {
-          const aggregatorNode = node as AggregatorNode;
-          // Collect all inputs from incoming connections
-          const inputs: unknown[] = [];
-          const incoming = this.dag.connections.filter(conn => conn.toNodeId === nodeId);
-          for (const conn of incoming) {
-            const fromOutputs = this.context.nodeOutputs.get(conn.fromNodeId);
-            if (fromOutputs) {
-              const value = fromOutputs.get(conn.fromPortId);
-              inputs.push(value);
-            }
-          }
-          output = await aggregatorNode.aggregate(inputs);
-          break;
-        }
-
-        default:
-          throw new Error(`Unsupported node type: ${node.type}`);
+      if (isSourceNode) {
+        // Source node - no input needed, execute() returns output
+        const sourceNode = node as { execute(): Promise<unknown> | unknown };
+        output = await Promise.resolve(sourceNode.execute());
+      } else {
+        // Transformer, Terminal, or Standalone node
+        // Check if node has execute with no parameters (standalone) or one parameter (transformer/terminal)
+        // For now, assume all non-source nodes need input
+        // Get input from connections (may be undefined for standalone nodes that don't have connections)
+        const input = this.getNodeInput(nodeId, 'input');
+        const executableNode = node as { execute(input?: unknown): Promise<unknown> | unknown };
+        output = await Promise.resolve(executableNode.execute(input));
+        // Note: Terminal and Standalone nodes return void, so output will be undefined
       }
 
-      // Store output
+      // Store output if it's not undefined
       if (output !== undefined) {
         const outputs = this.context.nodeOutputs.get(nodeId) || new Map();
         outputs.set('output', output);
@@ -344,7 +232,7 @@ export class DAGExecutor {
 
     while (queue.length > 0) {
       const nodeId = queue.shift()!;
-      
+
       if (executed.has(nodeId)) {
         continue;
       }
@@ -368,4 +256,3 @@ export class DAGExecutor {
     }
   }
 }
-

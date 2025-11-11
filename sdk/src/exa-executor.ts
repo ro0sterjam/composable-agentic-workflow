@@ -1,38 +1,24 @@
 import type { ExaSearchConfig } from './nodes/exa-search';
-import type { DAGConfig } from './dag-config';
 
 /**
  * Execute Exa Search node
  */
 export async function executeExaSearchNode(
   query: unknown,
-  config: ExaSearchConfig,
-  dagConfig?: DAGConfig
+  config: ExaSearchConfig
 ): Promise<unknown> {
-  // Get API key from config or environment
-  const getApiKey = (): string | undefined => {
-    if (dagConfig?.secrets?.exaApiKey) {
-      return dagConfig.secrets.exaApiKey;
-    }
-    // Only access process.env in Node.js environment
-    const isBrowser = typeof (globalThis as { window?: unknown }).window !== 'undefined';
-    if (!isBrowser && typeof process !== 'undefined' && process.env) {
-      return process.env.EXA_API_KEY;
-    }
-    return undefined;
-  };
-
-  const apiKey = getApiKey();
+  // Get API key from environment
+  const apiKey = process.env.EXA_API_KEY;
   
   if (!apiKey) {
-    throw new Error('Exa API key not found. Please provide it in DAG config or set EXA_API_KEY environment variable.');
+    throw new Error('Exa API key not found. Please set EXA_API_KEY environment variable.');
   }
 
   // Convert query to string
   const queryString = typeof query === 'string' ? query : JSON.stringify(query);
 
-  // Get timeout from config (default 30 seconds for search)
-  const timeout = dagConfig?.runtime?.timeout || 30000;
+  // Get timeout from environment (default 30 seconds for search)
+  const timeout = process.env.EXA_TIMEOUT ? parseInt(process.env.EXA_TIMEOUT, 10) : 30000;
 
   // Log execution start
   const startTime = Date.now();
@@ -149,7 +135,7 @@ export async function executeExaSearchNode(
         throw error;
       }
       if (error.message.includes('API key')) {
-        throw new Error(`Exa API authentication error: ${error.message}. Please check your API key in the Config Panel or EXA_API_KEY environment variable.`);
+        throw new Error(`Exa API authentication error: ${error.message}. Please check your EXA_API_KEY environment variable.`);
       }
     }
     throw error;

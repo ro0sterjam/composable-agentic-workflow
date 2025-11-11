@@ -1,28 +1,21 @@
-import type { BaseNode, Port } from '../types';
-import { NodeType } from '../types';
-import { NodeBuilder } from './base-builder';
+import { SourceNode } from './types';
 
 /**
- * Literal node - implementation of Source (outputs a literal value, no input)
+ * Literal source node - implementation of Source (outputs a literal value, no input)
+ * @template OutputType - The type of output data
  */
-export interface LiteralNode extends BaseNode {
-  type: NodeType.LITERAL;
-  outputPorts: Port[];
-  value: string | number | boolean | null | undefined;
-}
+export class LiteralSourceNode<OutputType> extends SourceNode<OutputType> {
+  type: 'literal';
+  value: OutputType;
 
-/**
- * Builder for literal nodes
- */
-export class LiteralNodeBuilder extends NodeBuilder<LiteralNode> {
-  value(val: string | number | boolean | null | undefined): this {
-    this.node.value = val;
-    return this;
+  constructor(id: string, value: OutputType, label?: string) {
+    super(id, 'literal', label);
+    this.type = 'literal';
+    this.value = value;
   }
 
-  outputPorts(ports: Port[]): this {
-    this.node.outputPorts = ports;
-    return this;
+  execute(): OutputType {
+    return this.value;
   }
 }
 

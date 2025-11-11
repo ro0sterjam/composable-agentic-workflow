@@ -1,70 +1,53 @@
-import { DAG, DAGData, Node, NodeType } from './types';
 import { DAGBuilder } from './dag-builder';
-import { executeExaSearchNode } from './exa-executor';
-import { LLMNode } from './nodes/llm';
-import type { DAGConfig } from './dag-config';
+import { defaultNodeRegistry } from './nodes/registry';
+import { DAG, DAGData, Node, DEFAULT_NODE_TYPES } from './types';
 
 /**
  * Serialize a DAG to JSON (without functions)
  */
 export function serializeDAG(dag: DAG): DAGData {
   const nodes: Record<string, any> = {};
-  
+
   for (const [id, node] of dag.nodes.entries()) {
     const serializable: any = {
       id: node.id,
       type: node.type,
       label: node.label,
-      metadata: node.metadata || {},
+      metadata:
+        ('metadata' in node
+          ? (node as { metadata?: Record<string, unknown> }).metadata
+          : undefined) || {},
     };
 
-    switch (node.type) {
-      case NodeType.CONDITIONAL:
-        serializable.inputPorts = node.inputPorts;
-        serializable.trueOutputPort = node.trueOutputPort;
-        serializable.falseOutputPort = node.falseOutputPort;
-        serializable.conditionRef = node.metadata?.conditionRef;
-        break;
-      case NodeType.LOOP:
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-        serializable.maxIterations = node.maxIterations;
-        serializable.subDag = serializeDAG(node.subDag);
-        serializable.loopConditionRef = node.metadata?.loopConditionRef;
-        break;
-      case NodeType.FAN_OUT:
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputBranches = node.outputBranches.map(branch => ({
-          port: branch.port,
-          subDag: branch.subDag ? serializeDAG(branch.subDag) : undefined,
-        }));
-        break;
-      case NodeType.AGGREGATOR:
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-        serializable.aggregateRef = node.metadata?.aggregateRef;
-        break;
-      case NodeType.LITERAL:
-        serializable.outputPorts = node.outputPorts;
-        serializable.value = node.value;
-        break;
-      case NodeType.LLM:
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-        serializable.model = node.model;
-        serializable.structuredOutput = node.structuredOutput;
-        serializable.executeRef = node.metadata?.executeRef;
-        break;
-      case NodeType.CONSOLE:
-        serializable.inputPorts = node.inputPorts;
-        serializable.executeRef = node.metadata?.executeRef;
-        break;
-      case NodeType.EXA_SEARCH:
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-        serializable.config = node.config;
-        serializable.executeRef = node.metadata?.executeRef;
-        break;
+    // Serialize node-specific fields
+    if (node.type === DEFAULT_NODE_TYPES.LITERAL) {
+      serializable.value = (node as import('./nodes/literal').LiteralSourceNode<any>).value;
+    } else if (node.type === DEFAULT_NODE_TYPES.LLM) {
+      const llmNode = node as
+        | import('./nodes/llm').LLMTransformerNode<any>
+        | import('./nodes/llm').LLMWithStructuredTransformerNode<any, any>;
+      serializable.model = llmNode.model;
+      if ('schema' in llmNode) {
+        serializable.schema = (llmNode as { schema: unknown }).schema;
+        serializable.mode = (llmNode as { mode?: 'auto' | 'json' | 'tool' }).mode;
+      }
+      const nodeMetadata =
+        'metadata' in node ? (node as { metadata?: Record<string, unknown> }).metadata : undefined;
+      serializable.executeRef = nodeMetadata?.executeRef;
+    } else if (node.type === DEFAULT_NODE_TYPES.CONSOLE) {
+      // Console sink node - no additional serialization needed
+      const nodeMetadata =
+        'metadata' in node ? (node as { metadata?: Record<string, unknown> }).metadata : undefined;
+      serializable.executeRef = nodeMetadata?.executeRef;
+    } else if (node.type === DEFAULT_NODE_TYPES.EXA_SEARCH) {
+      serializable.inputPorts = node.inputPorts;
+      serializable.outputPorts = node.outputPorts;
+      serializable.config = (
+        node as import('./nodes/exa-search').ExaSearchNode<any, any>
+      ).searchConfig;
+      const nodeMetadata =
+        'metadata' in node ? (node as { metadata?: Record<string, unknown> }).metadata : undefined;
+      serializable.executeRef = nodeMetadata?.executeRef;
     }
 
     nodes[id] = serializable;
@@ -81,154 +64,30 @@ export function serializeDAG(dag: DAG): DAGData {
 
 /**
  * Deserialize JSON to DAG structure
- * Note: Functions need to be provided separately via a registry
+ * Uses the node registry to dynamically construct nodes
  */
-export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Function>): DAG {
+export function deserializeDAG(data: DAGData, nodeRegistry = defaultNodeRegistry): DAG {
   const builder = new DAGBuilder(data.id);
-  
-  // Reconstruct nodes from serialized data
+
+  // Reconstruct nodes from serialized data using the registry
   for (const [id, nodeData] of Object.entries(data.nodes)) {
     const serialized = nodeData as any;
-    
-    switch (serialized.type) {
-      case NodeType.LITERAL: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.LITERAL,
-          label: serialized.label || serialized.id,
-          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          value: serialized.value,
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.LLM: {
-        const node = new LLMNode(
-          serialized.id,
-          serialized.model || 'openai/gpt-4o',
-          serialized.structuredOutput,
-          serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          serialized.label || serialized.id
-        );
-        if (serialized.metadata) {
-          node.metadata = serialized.metadata;
-        }
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.CONSOLE: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.CONSOLE,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          // Execute function is defined in ConsoleSinkBuilder constructor
-          execute: (input: unknown) => {
-            console.log('ConsoleSink:', input);
-          },
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        // The execute function is already set correctly above
-        break;
-      }
-      
-      case NodeType.EXA_SEARCH: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.EXA_SEARCH,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          config: serialized.config || {
-            searchType: 'auto',
-            text: true,
-            numResults: 10,
-          },
-          // Execute function calls executeExaSearchNode with config
-          execute: async (input: unknown, dagConfig?: DAGConfig) => {
-            return executeExaSearchNode(input, node.config, dagConfig);
-          },
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.CONDITIONAL: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.CONDITIONAL,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          trueOutputPort: serialized.trueOutputPort || { id: 'true', label: 'True' },
-          falseOutputPort: serialized.falseOutputPort || { id: 'false', label: 'False' },
-          // Condition function - use a default that always returns true
-          condition: async () => true,
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.AGGREGATOR: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.AGGREGATOR,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [],
-          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          // Aggregate function - default to returning the first input
-          aggregate: async (inputs: unknown[]) => inputs[0],
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.LOOP: {
-        const subDag = serialized.subDag ? deserializeDAG(serialized.subDag as DAGData, functionRegistry) : undefined;
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.LOOP,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          maxIterations: serialized.maxIterations || 10,
-          subDag: subDag || {
-            id: `${serialized.id}-sub`,
-            nodes: new Map(),
-            connections: [],
-          },
-          // Loop condition function - default to always false (no loop)
-          loopCondition: async () => false,
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
-      
-      case NodeType.FAN_OUT: {
-        const outputBranches = (serialized.outputBranches || []).map((branch: any) => ({
-          port: branch.port,
-          subDag: branch.subDag ? deserializeDAG(branch.subDag as DAGData, functionRegistry) : undefined,
-        }));
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.FAN_OUT,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          outputBranches,
-          metadata: serialized.metadata || {},
-        };
-        builder.addNode(node);
-        break;
-      }
+
+    // Use registry to create node instance
+    const node = nodeRegistry.create(serialized.type, serialized);
+
+    if (!node) {
+      throw new Error(
+        `Unknown node type: ${serialized.type}. Make sure it's registered in the node registry.`
+      );
     }
+
+    // Set metadata if present and node supports it
+    if (serialized.metadata && 'metadata' in node) {
+      (node as { metadata?: Record<string, unknown> }).metadata = serialized.metadata;
+    }
+
+    builder.addNode(node as Node);
   }
 
   // Reconstruct connections
@@ -248,4 +107,3 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
 
   return builder.build();
 }
-

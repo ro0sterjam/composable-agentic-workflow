@@ -5,29 +5,23 @@
 export type NodeId = string;
 export type PortId = string;
 
-/**
- * Base interface for all nodes
- */
-export interface BaseNode {
-  id: NodeId;
-  type: NodeType;
-  label?: string;
-  metadata?: Record<string, unknown>;
-}
+// Re-export node types from nodes
+export { TransformerNode, SourceNode, TerminalNode, StandAloneNode } from './nodes/types';
 
 /**
- * Node type enum
+ * Node type - free form string identifier for node types
  */
-export enum NodeType {
-  CONDITIONAL = 'conditional',
-  LOOP = 'loop',
-  FAN_OUT = 'fan_out',
-  AGGREGATOR = 'aggregator',
-  LLM = 'llm',
-  LITERAL = 'literal',
-  CONSOLE = 'console',
-  EXA_SEARCH = 'exa_search',
-}
+export type NodeType = string;
+
+/**
+ * Default node type constants
+ */
+export const DEFAULT_NODE_TYPES = {
+  LLM: 'llm',
+  LITERAL: 'literal',
+  CONSOLE: 'console',
+  EXA_SEARCH: 'exa_search',
+} as const;
 
 /**
  * Port definition for inputs/outputs
@@ -53,29 +47,19 @@ export interface Connection {
  * Union type for all node types
  * Imported from nodes to avoid circular dependency
  */
-import type {
-  ConditionalNode,
-  LoopNode,
-  FanOutNode,
-  AggregatorNode,
-  LLMNode,
-  LiteralNode,
-  ConsoleSinkNode,
-  ExaSearchNode,
-} from './nodes';
+import type { LLMNode, LiteralSourceNode, ConsoleTerminalNode, ExaSearchNode } from './nodes';
 
-export type {
-  ConditionalNode,
-  LoopNode,
-  FanOutNode,
-  AggregatorNode,
-  LLMNode,
-  LiteralNode,
-  ConsoleSinkNode,
-  ExaSearchNode,
-};
+export type { LLMNode, LiteralSourceNode, ConsoleTerminalNode, ExaSearchNode };
 
-export type Node = ConditionalNode | LoopNode | FanOutNode | AggregatorNode | LLMNode | LiteralNode | ConsoleSinkNode | ExaSearchNode;
+/**
+ * Union type for all node types
+ * Uses 'any' types to allow the union to work with all possible instantiations
+ */
+export type Node =
+  | LLMNode<any, any>
+  | LiteralSourceNode<any>
+  | ConsoleTerminalNode<any>
+  | ExaSearchNode<any, any>;
 
 /**
  * DAG structure (serializable version)
@@ -91,30 +75,20 @@ export interface DAGData {
 /**
  * Serializable node (without functions)
  */
-export interface SerializableNode extends Omit<BaseNode, 'metadata'> {
+export interface SerializableNode {
+  id: string;
+  type: NodeType;
+  label?: string;
   metadata?: Record<string, unknown>;
   // Execution node fields
   inputPorts?: Port[];
   outputPorts?: Port[];
-  // Conditional node fields
-  trueOutputPort?: Port;
-  falseOutputPort?: Port;
-  // Loop node fields
-  subDag?: DAGData;
-  maxIterations?: number;
-  // Fan-out node fields
-  outputBranches?: Array<{
-    port: Port;
-    subDag?: DAGData;
-  }>;
   // Literal node fields
   value?: string | number | boolean | null | undefined;
   // LLM node fields
   model?: string;
-  structuredOutput?: {
-    schema: Record<string, unknown>;
-    mode?: 'json' | 'json_schema' | 'tool';
-  };
+  schema?: Record<string, unknown>; // JSONSchema7
+  mode?: 'auto' | 'json' | 'tool';
   // Exa Search node fields
   config?: {
     searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
@@ -122,7 +96,16 @@ export interface SerializableNode extends Omit<BaseNode, 'metadata'> {
     excludeDomains?: string[];
     includeText?: string[];
     excludeText?: string[];
-    category?: string;
+    category?:
+      | 'company'
+      | 'research paper'
+      | 'news'
+      | 'pdf'
+      | 'github'
+      | 'tweet'
+      | 'personal site'
+      | 'linkedin profile'
+      | 'financial report';
     numResults?: number;
     text?: boolean;
     contents?: boolean | { numChars?: number };
@@ -141,4 +124,3 @@ export interface DAG {
   entryNodeId?: NodeId;
   exitNodeIds?: NodeId[];
 }
-
