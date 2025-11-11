@@ -5,7 +5,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { executeDAG } from './index.js';
+import { executeDAGFromFile } from './index.js';
+import type { LogEntry } from './index.js';
 
 // Load environment variables
 dotenv.config();
@@ -53,10 +54,10 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
     console.log('[Server] Starting DAG execution...');
     const startTime = Date.now();
     
-    await executeDAG({
+    await executeDAGFromFile({
       dagJson: dagJsonString,
       verbose: true,
-      onLog: (type, message, nodeId) => {
+      onLog: (type: LogEntry['type'], message: string, nodeId?: string) => {
         // Send to UI
         sendLog(type, message, nodeId);
         // Also log to server console for debugging

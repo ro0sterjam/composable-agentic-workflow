@@ -1,26 +1,35 @@
-import { Node as ReactFlowNode, Edge as ReactFlowEdge } from 'reactflow';
-import { Node, Connection } from '../../types/node';
+import type { Node, Edge } from 'reactflow';
 
-export function nodeToReactFlowNode(node: Node): ReactFlowNode {
-  return {
-    id: node.id,
-    type: 'custom',
-    position: { x: 0, y: 0 }, // Position should be set by UI
-    data: {
-      label: node.label || node.id,
-      nodeType: node.type,
+import type { SerializedDAG, SerializedNode, SerializedEdge } from '../types';
+
+/**
+ * Convert ReactFlow nodes and edges to SerializedDAG format
+ */
+export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): SerializedDAG {
+  const serializedNodes: SerializedNode[] = nodes.map((node) => {
+    const nodeType = node.data.nodeType as string;
+    const config: Record<string, unknown> = {};
+
+    // Extract config based on node type
+    if (nodeType === 'literal') {
+      config.value = node.data.value ?? '';
+    }
+
+    return {
       id: node.id,
-    },
-  };
-}
+      type: nodeType,
+      label: node.data.label || node.id,
+      ...(Object.keys(config).length > 0 && { config }),
+    };
+  });
 
-export function edgeToReactFlowEdge(connection: Connection): ReactFlowEdge {
+  const serializedEdges: SerializedEdge[] = edges.map((edge) => ({
+    from: edge.source,
+    to: edge.target,
+  }));
+
   return {
-    id: connection.id,
-    source: connection.fromNodeId,
-    target: connection.toNodeId,
-    sourceHandle: connection.fromPortId,
-    targetHandle: connection.toPortId,
+    nodes: serializedNodes,
+    edges: serializedEdges,
   };
 }
-

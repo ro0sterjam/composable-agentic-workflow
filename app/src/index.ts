@@ -14,13 +14,13 @@ import { fileURLToPath } from 'url';
 
 import dotenv from 'dotenv';
 
+import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
+import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
 import {
-  DAGBuilder,
-  DAGExecutor,
-  defaultNodeRegistry,
-  type ExecutionState,
-  type DAGData,
-  DEFAULT_NODE_TYPES,
+  executeDAG,
+  type SerializedDAG,
+  type NodeExecutionResult,
+  defaultExecutorRegistry,
 } from '../../sdk/src/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +29,7 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-interface LogEntry {
+export interface LogEntry {
   id: string;
   timestamp: Date;
   type: 'info' | 'success' | 'error' | 'warning' | 'console';
@@ -47,105 +47,8 @@ interface ExecutionOptions {
 /**
  * Execute a DAG from a JSON file or JSON string
  */
-async function executeDAG(options: ExecutionOptions): Promise<void> {
+async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   const { dagFile, dagJson, verbose = false, onLog } = options;
-
-  // Load DAG
-  let dagData: DAGData;
-  if (dagFile) {
-    const filePath = resolve(process.cwd(), dagFile);
-    if (verbose) {
-      console.log(`[App] Loading DAG from file: ${filePath}`);
-    }
-    const fileContent = readFileSync(filePath, 'utf-8');
-    dagData = JSON.parse(fileContent) as DAGData;
-  } else if (dagJson) {
-    if (verbose) {
-      console.log(`[App] Loading DAG from JSON string`);
-    }
-    dagData = JSON.parse(dagJson) as DAGData;
-  } else {
-    throw new Error('Either dagFile or dagJson must be provided');
-  }
-
-  // Deserialize DAG using registry
-  if (verbose) {
-    console.log(`[App] Deserializing DAG...`);
-  }
-  const builder = new DAGBuilder(dagData.id);
-
-  // Reconstruct nodes from serialized data using the registry
-  for (const [id, nodeData] of Object.entries(dagData.nodes)) {
-    const serialized = nodeData as any;
-
-    // Use registry to create node instance
-    const node = defaultNodeRegistry.create(serialized.type, serialized);
-
-    if (!node) {
-      throw new Error(
-        `Unknown node type: ${serialized.type}. Make sure it's registered in the node registry.`
-      );
-    }
-
-    // Set metadata if present and node supports it
-    if (serialized.metadata && 'metadata' in node) {
-      (node as { metadata?: Record<string, unknown> }).metadata = serialized.metadata;
-    }
-
-    builder.addNode(node as any); // Registry returns BaseNode union, cast to Node
-  }
-
-  // Reconstruct connections
-  for (const conn of dagData.connections) {
-    builder.connect(conn.fromNodeId, conn.fromPortId, conn.toNodeId, conn.toPortId, conn.id);
-  }
-
-  if (dagData.entryNodeId) {
-    builder.setEntryNode(dagData.entryNodeId);
-  }
-
-  if (dagData.exitNodeIds) {
-    for (const exitId of dagData.exitNodeIds) {
-      builder.addExitNode(exitId);
-    }
-  }
-
-  const dag = builder.build();
-
-  if (verbose) {
-    console.log(`[App] DAG loaded: ${dag.nodes.size} nodes, ${dag.connections.length} connections`);
-    console.log(`[App] Entry node ID: ${dag.entryNodeId || 'not set'}`);
-    console.log(`[App] Node IDs:`, Array.from(dag.nodes.keys()));
-    console.log(
-      `[App] Connections:`,
-      dag.connections.map((c) => `${c.fromNodeId}->${c.toNodeId}`)
-    );
-
-    // Check for nodes with no incoming connections
-    const nodesWithNoInputs: string[] = [];
-    for (const nodeId of dag.nodes.keys()) {
-      const incoming = dag.connections.filter((conn) => conn.toNodeId === nodeId);
-      if (incoming.length === 0) {
-        nodesWithNoInputs.push(nodeId);
-      }
-    }
-    console.log(
-      `[App] Nodes with no incoming connections (potential entry nodes):`,
-      nodesWithNoInputs
-    );
-  }
-
-  if (verbose) {
-    console.log(`[App] Configuration:`);
-    const hasApiKey = process.env.OPENAI_API_KEY;
-    console.log(`  - API Key: ${hasApiKey ? 'Set' : 'Not set (will fail for LLM nodes)'}`);
-    if (!hasApiKey) {
-      console.warn(`[App] WARNING: OPENAI_API_KEY not found in environment variables!`);
-    }
-  }
-
-  // Create executor
-  const executor = new DAGExecutor(dag);
 
   // Execute with state change callbacks
   const sendLog = (type: LogEntry['type'], message: string, nodeId?: string) => {
@@ -160,49 +63,92 @@ async function executeDAG(options: ExecutionOptions): Promise<void> {
     }
   };
 
+  // Register executors with custom logging for console terminal
+  defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
+  defaultExecutorRegistry.registerTerminal(
+    'console',
+    new ConsoleTerminalExecutor((message: string, data: unknown) => {
+      // Send log through the app's logging system
+      const logMessage = `${message} ${typeof data === 'string' ? data : JSON.stringify(data)}`;
+      sendLog('console', logMessage);
+    })
+  );
+
+  // Load DAG
+  let serializedDAG: SerializedDAG;
+  if (dagFile) {
+    const filePath = resolve(process.cwd(), dagFile);
+    if (verbose) {
+      console.log(`[App] Loading DAG from file: ${filePath}`);
+    }
+    const fileContent = readFileSync(filePath, 'utf-8');
+    serializedDAG = JSON.parse(fileContent) as SerializedDAG;
+  } else if (dagJson) {
+    if (verbose) {
+      console.log(`[App] Loading DAG from JSON string`);
+    }
+    serializedDAG = typeof dagJson === 'string' ? JSON.parse(dagJson) : dagJson;
+  } else {
+    throw new Error('Either dagFile or dagJson must be provided');
+  }
+
+  if (verbose) {
+    console.log(
+      `[App] DAG loaded: ${serializedDAG.nodes.length} nodes, ${serializedDAG.edges.length} edges`
+    );
+    console.log(
+      `[App] Node IDs:`,
+      serializedDAG.nodes.map((n) => n.id)
+    );
+    console.log(
+      `[App] Edges:`,
+      serializedDAG.edges.map((e) => `${e.from}->${e.to}`)
+    );
+  }
+
+  if (verbose) {
+    console.log(`[App] Configuration:`);
+    const hasApiKey = process.env.OPENAI_API_KEY;
+    console.log(`  - API Key: ${hasApiKey ? 'Set' : 'Not set (will fail for LLM nodes)'}`);
+    if (!hasApiKey) {
+      console.warn(`[App] WARNING: OPENAI_API_KEY not found in environment variables!`);
+    }
+  }
+
   sendLog('info', 'Starting DAG execution...');
   sendLog(
     'info',
-    `DAG contains ${dag.nodes.size} node(s) and ${dag.connections.length} connection(s)`
+    `DAG contains ${serializedDAG.nodes.length} node(s) and ${serializedDAG.edges.length} edge(s)`
   );
 
   const startTime = Date.now();
 
   try {
-    await executor.execute((nodeId: string, state: ExecutionState) => {
-      const node = dag.nodes.get(nodeId);
-      const nodeLabel = node?.label || nodeId;
+    const result = await executeDAG(serializedDAG, {
+      onNodeComplete: (nodeId: string, nodeResult: NodeExecutionResult) => {
+        const node = serializedDAG.nodes.find((n) => n.id === nodeId);
+        const nodeLabel = node?.label || nodeId;
 
-      if (state === 'running') {
-        sendLog('info', `Executing node: ${nodeLabel}`, nodeId);
-      } else if (state === 'completed') {
-        sendLog('success', `Completed: ${nodeLabel}`, nodeId);
+        if (nodeResult.error) {
+          sendLog('error', `Failed: ${nodeLabel} - ${nodeResult.error.message}`, nodeId);
+        } else {
+          sendLog('success', `Completed: ${nodeLabel}`, nodeId);
 
-        // Check for console logs from console nodes
-        if (node?.type === DEFAULT_NODE_TYPES.CONSOLE) {
-          const context = executor.getContext();
-          const outputs = context.nodeOutputs.get(nodeId);
-          const consoleLogs = outputs?.get('_console_logs');
-          if (consoleLogs && Array.isArray(consoleLogs)) {
-            consoleLogs.forEach((log: string) => {
-              sendLog('console', log, nodeId);
-            });
+          // Check for console output
+          if (node?.type === 'console' && nodeResult.output !== undefined) {
+            sendLog('console', String(nodeResult.output), nodeId);
           }
         }
-      } else if (state === 'failed') {
-        const error = executor.getNodeError(nodeId);
-        sendLog('error', `Failed: ${nodeLabel} - ${error?.message || 'Unknown error'}`, nodeId);
-      }
+      },
     });
 
     const duration = Date.now() - startTime;
 
-    // Get final states
-    const allStates = executor.getAllNodeStates();
-    const failedNodes: Array<[string, 'failed']> = [];
-    for (const [nodeId, state] of allStates.entries()) {
-      if (state === 'failed') {
-        failedNodes.push([nodeId, state]);
+    // Check for failures
+    const failedNodes: Array<[string, NodeExecutionResult]> = [];
+    for (const [nodeId, nodeResult] of result.results.entries()) {
+      if (nodeResult.error) {
+        failedNodes.push([nodeId, nodeResult]);
       }
     }
 
@@ -211,10 +157,13 @@ async function executeDAG(options: ExecutionOptions): Promise<void> {
         'error',
         `DAG execution completed with ${failedNodes.length} failure(s) in ${duration}ms`
       );
-      for (const [nodeId] of failedNodes) {
-        const node = dag.nodes.get(nodeId);
-        const error = executor.getNodeError(nodeId);
-        sendLog('error', `${node?.label || nodeId}: ${error?.message || 'Unknown error'}`, nodeId);
+      for (const [nodeId, nodeResult] of failedNodes) {
+        const node = serializedDAG.nodes.find((n) => n.id === nodeId);
+        sendLog(
+          'error',
+          `${node?.label || nodeId}: ${nodeResult.error?.message || 'Unknown error'}`,
+          nodeId
+        );
       }
       if (!onLog) {
         // Only exit if not being called from server (CLI mode)
@@ -260,17 +209,16 @@ Usage:
 
 Options:
   --file, -f <path>        Path to DAG JSON file
-  --json, -j <string>      DAG JSON string
-  --verbose, -v            Enable verbose logging
-  --help, -h               Show this help message
+  --json, -j <string>       DAG JSON string
+  --verbose, -v             Enable verbose logging
+  --help, -h                Show this help message
 
 Environment Variables:
-  OPENAI_API_KEY           OpenAI API key for LLM nodes
+  OPENAI_API_KEY            OpenAI API key for LLM nodes
 
 Examples:
   npm run execute -- --file ./dag.json
   npm run execute -- --file ./dag.json --verbose
-  npm run execute -- --file ./dag.json
     `);
     process.exit(0);
   }
@@ -293,7 +241,7 @@ Examples:
   }
 
   // Execute
-  await executeDAG(options);
+  await executeDAGFromFile(options);
 }
 
 // Run if called directly
@@ -304,4 +252,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { executeDAG };
+export { executeDAGFromFile };

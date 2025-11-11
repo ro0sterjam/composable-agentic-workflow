@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import type { DAGConfig } from '@sdk/dag-config';
+
+interface DAGConfig {
+  runtime?: {
+    timeout?: number;
+    maxRetries?: number;
+  };
+  environment?: {
+    name?: string;
+  };
+}
 
 interface ConfigPanelProps {
   config: DAGConfig;
@@ -12,8 +21,6 @@ function ConfigPanel({ config, onConfigChange, onClose }: ConfigPanelProps) {
     runtime: config.runtime || { timeout: 30000, maxRetries: 0 },
     environment: config.environment || { name: 'development' },
     ...config,
-    // Remove secrets from UI config
-    secrets: undefined,
   }));
 
   useEffect(() => {
@@ -21,18 +28,11 @@ function ConfigPanel({ config, onConfigChange, onClose }: ConfigPanelProps) {
       runtime: config.runtime || { timeout: 30000, maxRetries: 0 },
       environment: config.environment || { name: 'development' },
       ...config,
-      // Remove secrets from UI config
-      secrets: undefined,
     });
   }, [config]);
 
   const handleSave = () => {
-    // Ensure secrets are not saved
-    const configToSave = {
-      ...localConfig,
-      secrets: undefined,
-    };
-    onConfigChange(configToSave);
+    onConfigChange(localConfig);
     onClose();
   };
 

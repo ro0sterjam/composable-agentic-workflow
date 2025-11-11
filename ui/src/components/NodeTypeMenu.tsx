@@ -1,5 +1,5 @@
 import React from 'react';
-import { NodeType } from '../../../sdk/src/types';
+import { NodeType } from '../types';
 
 interface NodeTypeMenuProps {
   position: { x: number; y: number };
@@ -8,14 +8,8 @@ interface NodeTypeMenuProps {
 }
 
 const nodeTypes = [
-  { type: NodeType.CONDITIONAL, label: 'Conditional', icon: '❓' },
-  { type: NodeType.LOOP, label: 'Loop', icon: '🔁' },
-  { type: NodeType.FAN_OUT, label: 'Fan Out', icon: '🔀' },
-  { type: NodeType.AGGREGATOR, label: 'Aggregator', icon: '📊' },
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },
-  { type: NodeType.LLM, label: 'LLM', icon: '🤖' },
-  { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍' },
 ];
 
 function NodeTypeMenu({ position, onSelect, onClose }: NodeTypeMenuProps) {

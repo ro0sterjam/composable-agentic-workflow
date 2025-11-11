@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NodeType } from '../../../sdk/src/types';
+import { NodeType } from '../types';
 
 interface DataNodeEditorProps {
   nodeId: string;

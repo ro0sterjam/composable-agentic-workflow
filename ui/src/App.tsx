@@ -17,21 +17,16 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
-  FluentDAGBuilder, 
   NodeType, 
-  serializeDAG, 
-  DAGExecutor, 
-  type ExecutionState,
-  createConfigFromEnv,
-  type DAGConfig
-} from '../../sdk/src/index';
+  type SerializedDAG,
+  NODE_TYPES,
+} from './types';
+import { convertToSerializedDAG } from './utils/converter';
 import CustomNode from './components/CustomNode';
 import Sidebar from './components/Sidebar';
 import NodeTypeMenu from './components/NodeTypeMenu';
 import NodeEditor, { NodeConfig } from './components/NodeEditor';
 import LogPanel, { type LogEntry } from './components/LogPanel';
-import ConfigPanel from './components/ConfigPanel';
-
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
 };
@@ -41,7 +36,6 @@ const getNodeId = () => `node_${++nodeIdCounter}`;
 
 const STORAGE_KEY = 'dag-editor-state';
 const STORAGE_KEY_COUNTER = 'dag-editor-node-counter';
-const STORAGE_KEY_CONFIG = 'dag-editor-config';
 
 // Initialize counter from storage
 const savedCounter = localStorage.getItem(STORAGE_KEY_COUNTER);
@@ -49,16 +43,16 @@ if (savedCounter) {
   nodeIdCounter = parseInt(savedCounter, 10) || 0;
 }
 
+type ExecutionState = 'idle' | 'running' | 'completed' | 'failed';
+
 interface HistoryState {
   nodes: Node[];
   edges: Edge[];
-  dagData: string; // Serialized DAG state
 }
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [dagBuilder] = useState(() => new FluentDAGBuilder('main-dag'));
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [connectionStart, setConnectionStart] = useState<{ nodeId: string; handleId: string; position: { x: number; y: number } } | null>(null);
@@ -72,44 +66,6 @@ function App() {
   const [nodeExecutionStates, setNodeExecutionStates] = useState<Map<string, ExecutionState>>(new Map());
   const [isExecuting, setIsExecuting] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  // Load config from localStorage or create default
-  // Note: Secrets are not stored in UI config - they come from .env when executing server-side
-  const [dagConfig, setDagConfig] = useState<DAGConfig>(() => {
-    const savedConfig = localStorage.getItem(STORAGE_KEY_CONFIG);
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        // Merge with defaults, but exclude secrets
-        return {
-          ...createConfigFromEnv(),
-          ...parsed,
-          // Explicitly remove secrets from UI config
-          secrets: undefined,
-          runtime: {
-            ...createConfigFromEnv().runtime,
-            ...parsed.runtime,
-          },
-          environment: {
-            ...createConfigFromEnv().environment,
-            ...parsed.environment,
-          },
-        };
-      } catch (e) {
-        console.error('Error loading config from localStorage:', e);
-        const defaultConfig = createConfigFromEnv();
-        return {
-          ...defaultConfig,
-          secrets: undefined, // Remove secrets from UI
-        };
-      }
-    }
-    const defaultConfig = createConfigFromEnv();
-    return {
-      ...defaultConfig,
-      secrets: undefined, // Remove secrets from UI
-    };
-  });
-  const [showConfigPanel, setShowConfigPanel] = useState(false);
   
   // Pan/selection state
   const [enablePanning, setEnablePanning] = useState(true);
@@ -127,7 +83,6 @@ function App() {
     const currentState: HistoryState = {
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
-      dagData: JSON.stringify(serializeDAG(dagBuilder.build())),
     };
 
     setHistory((prev) => {
@@ -141,7 +96,7 @@ function App() {
       return newHistory;
     });
     setHistoryIndex((prev) => Math.min(prev + 1, 49));
-  }, [nodes, edges, dagBuilder, historyIndex]);
+  }, [nodes, edges, historyIndex]);
 
   // Undo function
   const undo = useCallback(() => {
@@ -155,86 +110,17 @@ function App() {
       setNodes(previousState.nodes);
       setEdges(previousState.edges);
       setHistoryIndex(previousIndex);
-      
-      // Restore DAG builder from serialized state
-      try {
-        const dagData = JSON.parse(previousState.dagData);
-        // Clear current DAG builder
-        const newDagBuilder = new FluentDAGBuilder('main-dag');
-        
-        // Recreate nodes
-        previousState.nodes.forEach((node: Node) => {
-          const nodeType = node.data.nodeType as NodeType;
-          if (nodeType) {
-            const label = node.data.label || nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
-            
-            switch (nodeType) {
-              case NodeType.CONDITIONAL:
-                newDagBuilder.conditional(node.id, async () => true).label(label);
-                break;
-              case NodeType.LOOP:
-                newDagBuilder.loop(node.id, async () => false).label(label);
-                break;
-              case NodeType.FAN_OUT:
-                newDagBuilder.fanOut(node.id, 1).label(label);
-                break;
-              case NodeType.AGGREGATOR:
-                newDagBuilder.aggregator(node.id, async (inputs) => inputs).label(label);
-                break;
-              case NodeType.LITERAL:
-                newDagBuilder.data(node.id, node.data.value || '').label(label);
-                break;
-              case NodeType.CONSOLE:
-                newDagBuilder.consoleSink(node.id).label(label);
-                break;
-              case NodeType.LLM:
-                newDagBuilder
-                  .llm(node.id)
-                  .label(label);
-                const restoredLLMNode = newDagBuilder.getBuilder().getNode(node.id);
-                if (restoredLLMNode && restoredLLMNode.type === NodeType.LLM) {
-                  if (node.data.model) {
-                    restoredLLMNode.model = node.data.model;
-                  }
-                  if (node.data.structuredOutput) {
-                    restoredLLMNode.structuredOutput = node.data.structuredOutput;
-                  }
-                }
-                break;
-            }
-          }
-        });
-
-        // Restore connections
-        previousState.edges.forEach((edge: Edge) => {
-          if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle) {
-            newDagBuilder.connect(
-              edge.source,
-              edge.sourceHandle,
-              edge.target,
-              edge.targetHandle
-            );
-          }
-        });
-
-        // Replace the DAG builder
-        (dagBuilder as any).builder = newDagBuilder.getBuilder();
-      } catch (error) {
-        console.error('Error restoring DAG state:', error);
-      }
     } else {
       // Clear everything
       setNodes([]);
       setEdges([]);
       setHistoryIndex(-1);
-      const newDagBuilder = new FluentDAGBuilder('main-dag');
-      (dagBuilder as any).builder = newDagBuilder.getBuilder();
     }
 
     setTimeout(() => {
       isUndoRedoRef.current = false;
     }, 100);
-  }, [history, historyIndex, setNodes, setEdges, dagBuilder]);
+  }, [history, historyIndex, setNodes, setEdges]);
 
   // Redo function
   const redo = useCallback(() => {
@@ -247,73 +133,11 @@ function App() {
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
     setHistoryIndex(nextIndex);
-    
-    // Restore DAG builder from serialized state
-    try {
-      const dagData = JSON.parse(nextState.dagData);
-      const newDagBuilder = new FluentDAGBuilder('main-dag');
-      
-      // Recreate nodes
-      nextState.nodes.forEach((node: Node) => {
-        const nodeType = node.data.nodeType as NodeType;
-        if (nodeType) {
-          const label = node.data.label || nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
-          
-          switch (nodeType) {
-            case NodeType.CONDITIONAL:
-              newDagBuilder.conditional(node.id, async () => true).label(label);
-              break;
-            case NodeType.LOOP:
-              newDagBuilder.loop(node.id, async () => false).label(label);
-              break;
-            case NodeType.FAN_OUT:
-              newDagBuilder.fanOut(node.id, 1).label(label);
-              break;
-            case NodeType.AGGREGATOR:
-              newDagBuilder.aggregator(node.id, async (inputs) => inputs).label(label);
-              break;
-                case NodeType.LITERAL:
-              newDagBuilder.data(node.id, node.data.value || '').label(label);
-              break;
-            case NodeType.LLM:
-              newDagBuilder
-                .llm(node.id)
-                .label(label);
-              const restoredLLMNode = newDagBuilder.getBuilder().getNode(node.id);
-              if (restoredLLMNode && restoredLLMNode.type === NodeType.LLM) {
-                if (node.data.model) {
-                  restoredLLMNode.model = node.data.model;
-                }
-                if (node.data.structuredOutput) {
-                  restoredLLMNode.structuredOutput = node.data.structuredOutput;
-                }
-              }
-              break;
-          }
-        }
-      });
-
-      // Restore connections
-      nextState.edges.forEach((edge: Edge) => {
-        if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle) {
-          newDagBuilder.connect(
-            edge.source,
-            edge.sourceHandle,
-            edge.target,
-            edge.targetHandle
-          );
-        }
-      });
-
-      (dagBuilder as any).builder = newDagBuilder.getBuilder();
-    } catch (error) {
-      console.error('Error restoring DAG state:', error);
-    }
 
     setTimeout(() => {
       isUndoRedoRef.current = false;
     }, 100);
-  }, [history, historyIndex, setNodes, setEdges, dagBuilder]);
+  }, [history, historyIndex, setNodes, setEdges]);
 
   // Keyboard event handler for undo/redo
   useEffect(() => {
@@ -379,7 +203,7 @@ function App() {
     if (handleId === 'output' && nodeId) {
       connectionMadeRef.current = false;
       isDraggingConnectionRef.current = true;
-      const mouseEvent = event as MouseEvent;
+      const mouseEvent = event as unknown as MouseEvent;
       setConnectionStart({
         nodeId,
         handleId,
@@ -420,16 +244,6 @@ function App() {
       setConnectionStart(null);
       setMenuPosition(null);
       
-      // Also add to DAG builder
-      if (params.source && params.target && params.sourceHandle && params.targetHandle) {
-        dagBuilder.connect(
-          params.source,
-          params.sourceHandle,
-          params.target,
-          params.targetHandle
-        );
-      }
-      
       // Save to history after a short delay
       if (saveHistoryTimeoutRef.current) {
         clearTimeout(saveHistoryTimeoutRef.current);
@@ -438,7 +252,7 @@ function App() {
         saveToHistory();
       }, 300);
     },
-    [setEdges, dagBuilder, saveToHistory]
+    [setEdges, saveToHistory]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -446,43 +260,6 @@ function App() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const createDAGNode = useCallback((nodeType: NodeType, id: string) => {
-    const label = nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
-    
-    switch (nodeType) {
-      case NodeType.CONDITIONAL:
-        dagBuilder.conditional(id, async () => true).label(label);
-        break;
-      case NodeType.LOOP:
-        dagBuilder.loop(id, async () => false).label(label);
-        break;
-      case NodeType.FAN_OUT:
-        dagBuilder.fanOut(id, 1).label(label);
-        break;
-      case NodeType.AGGREGATOR:
-        dagBuilder.aggregator(id, async (inputs) => inputs).label(label);
-        break;
-      case NodeType.LITERAL:
-        dagBuilder.data(id, '').label(label);
-        break;
-      case NodeType.CONSOLE:
-        dagBuilder.consoleSink(id).label(label);
-        break;
-      case NodeType.LLM:
-        dagBuilder
-          .llm(id)
-          .label(label);
-        break;
-      case NodeType.EXA_SEARCH:
-        dagBuilder
-          .exaSearch(id)
-          .label(label);
-        break;
-      default:
-        // Unknown node type - do nothing
-        break;
-    }
-  }, [dagBuilder]);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -499,47 +276,17 @@ function App() {
       });
 
       const nodeId = getNodeId();
-      createDAGNode(type, nodeId);
-
-    // Get value for source nodes and model for LLM nodes
-    let nodeValue: string | number | boolean | null | undefined = undefined;
-    let nodeModel: string | undefined = undefined;
-    let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
-    let nodeExaConfig: {
-      searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-      includeDomains?: string[];
-      excludeDomains?: string[];
-      includeText?: string[];
-      excludeText?: string[];
-      category?: string;
-      numResults?: number;
-      text?: boolean;
-      contents?: boolean | { numChars?: number };
-      highlights?: boolean;
-      summary?: boolean;
-    } | undefined = undefined;
-    
-    const dagNode = dagBuilder.getBuilder().getNode(nodeId);
-    if (type === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
-      nodeValue = dagNode.value;
-    } else if (type === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
-      nodeModel = dagNode.model;
-      nodeStructuredOutput = dagNode.structuredOutput;
-    } else if (type === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
-      nodeExaConfig = dagNode.config;
-    }
+      const label = type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ');
 
       const newNode: Node = {
         id: nodeId,
         type: 'custom',
         position,
         data: {
-          label: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+          label,
           nodeType: type,
           id: nodeId,
-          ...(type === NodeType.LITERAL && { value: nodeValue }),
-          ...(type === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
-          ...(type === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
+          ...(type === NodeType.LITERAL && { value: '' }),
         },
       };
 
@@ -548,7 +295,7 @@ function App() {
       // Save to history
       setTimeout(() => saveToHistory(), 100);
     },
-    [reactFlowInstance, setNodes, createDAGNode, dagBuilder, saveToHistory]
+    [reactFlowInstance, setNodes, saveToHistory]
   );
 
   const onNodeAdd = useCallback((nodeType: NodeType) => {
@@ -562,47 +309,17 @@ function App() {
     });
 
     const nodeId = getNodeId();
-    createDAGNode(nodeType, nodeId);
-
-    // Get value for literal nodes, model for LLM nodes, config for Exa Search nodes
-    let nodeValue: string | number | boolean | null | undefined = undefined;
-    let nodeModel: string | undefined = undefined;
-    let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
-    let nodeExaConfig: {
-      searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-      includeDomains?: string[];
-      excludeDomains?: string[];
-      includeText?: string[];
-      excludeText?: string[];
-      category?: string;
-      numResults?: number;
-      text?: boolean;
-      contents?: boolean | { numChars?: number };
-      highlights?: boolean;
-      summary?: boolean;
-    } | undefined = undefined;
-    
-    const dagNode = dagBuilder.getBuilder().getNode(nodeId);
-    if (nodeType === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
-      nodeValue = dagNode.value;
-    } else if (nodeType === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
-      nodeModel = dagNode.model;
-      nodeStructuredOutput = dagNode.structuredOutput;
-    } else if (nodeType === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
-      nodeExaConfig = dagNode.config;
-    }
+    const label = nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
 
     const newNode: Node = {
       id: nodeId,
       type: 'custom',
       position,
       data: {
-        label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' '),
+        label,
         nodeType,
         id: nodeId,
-        ...(nodeType === NodeType.LITERAL && { value: nodeValue }),
-        ...(nodeType === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
-        ...(nodeType === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
+        ...(nodeType === NodeType.LITERAL && { value: '' }),
       },
     };
 
@@ -610,15 +327,11 @@ function App() {
     
     // Save to history
     setTimeout(() => saveToHistory(), 100);
-  }, [reactFlowInstance, setNodes, createDAGNode, dagBuilder, saveToHistory]);
+  }, [reactFlowInstance, setNodes, saveToHistory]);
 
   const onSave = useCallback(() => {
-    const dag = dagBuilder.build();
-    const validation = dagBuilder.getBuilder().validate();
-    console.log('DAG Validation:', validation);
-    
-    // Serialize to JSON
-    const serialized = serializeDAG(dag);
+    // Serialize to JSON using convertToSerializedDAG
+    const serialized = convertToSerializedDAG(nodes, edges);
     console.log('Serialized DAG:', JSON.stringify(serialized, null, 2));
     
     // Save visual state
@@ -640,7 +353,7 @@ function App() {
     URL.revokeObjectURL(url);
     
     alert('DAG saved! JSON file downloaded.');
-  }, [dagBuilder, nodes, edges]);
+  }, [nodes, edges]);
 
   const addLog = useCallback((type: LogEntry['type'], message: string, nodeId?: string) => {
     setLogs((prev) => [
@@ -655,79 +368,6 @@ function App() {
     ]);
   }, []);
 
-  // Rebuild DAG from current React Flow state
-  const rebuildDAGFromUI = useCallback(() => {
-    // Create a fresh DAG builder
-    const freshBuilder = new FluentDAGBuilder('main-dag');
-    
-    // Recreate all nodes from React Flow state
-    nodes.forEach((node) => {
-      const nodeType = node.data.nodeType as NodeType;
-      if (!nodeType) return;
-      
-      const label = node.data.label || nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
-      
-      switch (nodeType) {
-        case NodeType.LITERAL:
-          freshBuilder.data(node.id, node.data.value || '').label(label);
-          break;
-        case NodeType.LLM:
-          freshBuilder
-            .llm(node.id)
-            .label(label);
-          const llmNode = freshBuilder.getBuilder().getNode(node.id);
-          if (llmNode && llmNode.type === NodeType.LLM) {
-            if (node.data.model) {
-              llmNode.model = node.data.model;
-            }
-            if (node.data.structuredOutput) {
-              llmNode.structuredOutput = node.data.structuredOutput;
-            }
-          }
-          break;
-        case NodeType.CONSOLE:
-          freshBuilder.consoleSink(node.id).label(label);
-          break;
-        case NodeType.EXA_SEARCH:
-          freshBuilder
-            .exaSearch(node.id)
-            .label(label);
-          const exaNode = freshBuilder.getBuilder().getNode(node.id);
-          if (exaNode && exaNode.type === NodeType.EXA_SEARCH) {
-            if (node.data.exaConfig) {
-              exaNode.config = { ...exaNode.config, ...node.data.exaConfig };
-            }
-          }
-          break;
-        case NodeType.CONDITIONAL:
-          freshBuilder.conditional(node.id, async () => true).label(label);
-          break;
-        case NodeType.LOOP:
-          freshBuilder.loop(node.id, async () => false).label(label);
-          break;
-        case NodeType.FAN_OUT:
-          freshBuilder.fanOut(node.id, 1).label(label);
-          break;
-        case NodeType.AGGREGATOR:
-          freshBuilder.aggregator(node.id, async (inputs) => inputs).label(label);
-          break;
-      }
-    });
-    
-    // Recreate all connections from React Flow edges
-    edges.forEach((edge) => {
-      if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle) {
-        freshBuilder.connect(
-          edge.source,
-          edge.sourceHandle,
-          edge.target,
-          edge.targetHandle
-        );
-      }
-    });
-    
-    return freshBuilder.build();
-  }, [nodes, edges]);
 
   const onRunDAG = useCallback(async () => {
     if (isExecuting) return;
@@ -738,20 +378,16 @@ function App() {
     addLog('info', 'Starting DAG execution...');
 
     try {
-      // Rebuild DAG from current UI state to ensure it's in sync
-      const dag = rebuildDAGFromUI();
+      // Convert current React Flow state to SerializedDAG
+      const serialized = convertToSerializedDAG(nodes, edges);
 
-      if (dag.nodes.size === 0) {
+      if (serialized.nodes.length === 0) {
         addLog('error', 'No nodes in DAG. Please add some nodes first.');
         setIsExecuting(false);
         return;
       }
-
-      // Serialize DAG for server
-      const serialized = serializeDAG(dag);
       
       // Call server endpoint to execute DAG
-      // In Vite, environment variables are accessed via import.meta.env
       const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
       const response = await fetch(`${serverUrl}/api/execute`, {
         method: 'POST',
@@ -760,7 +396,6 @@ function App() {
         },
         body: JSON.stringify({
           dagJson: serialized,
-          config: dagConfig,
         }),
       });
 
@@ -818,7 +453,7 @@ function App() {
     } finally {
       setIsExecuting(false);
     }
-  }, [rebuildDAGFromUI, isExecuting, addLog, dagConfig, serializeDAG]);
+  }, [isExecuting, addLog, nodes, edges]);
 
   const onLoad = useCallback(() => {
     const saved = localStorage.getItem('dag-json');
@@ -845,47 +480,17 @@ function App() {
       });
 
       const nodeId = getNodeId();
-      createDAGNode(nodeType, nodeId);
-
-      // Get value for data nodes, model for LLM nodes, config for Exa Search nodes
-      let nodeValue: string | number | boolean | null | undefined = undefined;
-      let nodeModel: string | undefined = undefined;
-      let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
-      let nodeExaConfig: {
-        searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-        includeDomains?: string[];
-        excludeDomains?: string[];
-        includeText?: string[];
-        excludeText?: string[];
-        category?: string;
-        numResults?: number;
-        text?: boolean;
-        contents?: boolean | { numChars?: number };
-        highlights?: boolean;
-        summary?: boolean;
-      } | undefined = undefined;
-      
-      const dagNode = dagBuilder.getBuilder().getNode(nodeId);
-      if (nodeType === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
-        nodeValue = dagNode.value;
-      } else if (nodeType === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
-        nodeModel = dagNode.model;
-        nodeStructuredOutput = dagNode.structuredOutput;
-      } else if (nodeType === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
-        nodeExaConfig = dagNode.config;
-      }
+      const label = nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
 
       const newNode: Node = {
         id: nodeId,
         type: 'custom',
         position,
         data: {
-          label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' '),
+          label,
           nodeType,
           id: nodeId,
-          ...(nodeType === NodeType.LITERAL && { value: nodeValue }),
-          ...(nodeType === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
-          ...(nodeType === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
+          ...(nodeType === NodeType.LITERAL && { value: '' }),
         },
       };
 
@@ -900,12 +505,11 @@ function App() {
       };
 
       setEdges((eds) => addEdge(connection, eds));
-      dagBuilder.connect(connectionStart.nodeId, connectionStart.handleId, nodeId, 'input');
 
       setConnectionStart(null);
       setMenuPosition(null);
     },
-    [connectionStart, menuPosition, reactFlowInstance, setNodes, createDAGNode, setEdges, dagBuilder]
+    [connectionStart, menuPosition, reactFlowInstance, setNodes, setEdges]
   );
 
   const onNodeEdit = useCallback((nodeId: string) => {
@@ -924,45 +528,18 @@ function App() {
                   ...node.data,
                   ...(config.label !== undefined && { label: config.label }),
                   ...(config.value !== undefined && { value: config.value }),
-                  ...(config.model !== undefined && { model: config.model }),
-                  ...(config.structuredOutput !== undefined && { structuredOutput: config.structuredOutput }),
-                  ...(config.exaConfig !== undefined && { exaConfig: config.exaConfig }),
                 },
               }
             : node
         )
       );
 
-      // Update the DAG builder node
-      const dagNode = dagBuilder.getBuilder().getNode(nodeId);
-      if (dagNode) {
-        if (config.label !== undefined) {
-          dagNode.label = config.label;
-        }
-        if (dagNode.type === NodeType.LITERAL && config.value !== undefined) {
-          dagNode.value = config.value;
-        }
-        if (dagNode.type === NodeType.LLM) {
-          if (config.model !== undefined) {
-            dagNode.model = config.model;
-          }
-          if (config.structuredOutput !== undefined) {
-            dagNode.structuredOutput = config.structuredOutput;
-          }
-        }
-        if (dagNode.type === NodeType.EXA_SEARCH) {
-          if (config.exaConfig !== undefined) {
-            dagNode.config = { ...dagNode.config, ...config.exaConfig };
-          }
-        }
-      }
-
       setEditingNodeId(null);
       
       // Save to history
       setTimeout(() => saveToHistory(), 100);
     },
-    [setNodes, dagBuilder, saveToHistory]
+    [setNodes, saveToHistory]
   );
 
   // Save state to localStorage whenever nodes or edges change
@@ -990,77 +567,9 @@ function App() {
             nodeIdCounter = parsed.nodeCounter;
           }
 
-          // Restore visual state first
+          // Restore visual state
           setNodes(parsed.nodes || []);
           setEdges(parsed.edges || []);
-
-          // Restore DAG builder state
-          // Recreate all nodes in the DAG builder
-          parsed.nodes.forEach((node: Node) => {
-            const nodeType = node.data.nodeType as NodeType;
-            if (nodeType) {
-              const label = node.data.label || nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ');
-              
-              switch (nodeType) {
-                case NodeType.CONDITIONAL:
-                  dagBuilder.conditional(node.id, async () => true).label(label);
-                  break;
-                case NodeType.LOOP:
-                  dagBuilder.loop(node.id, async () => false).label(label);
-                  break;
-                case NodeType.FAN_OUT:
-                  dagBuilder.fanOut(node.id, 1).label(label);
-                  break;
-                case NodeType.AGGREGATOR:
-                  dagBuilder.aggregator(node.id, async (inputs) => inputs).label(label);
-                  break;
-                case NodeType.LITERAL:
-                  dagBuilder.data(node.id, node.data.value || '').label(label);
-                  break;
-                case NodeType.LLM:
-                  dagBuilder
-                    .llm(node.id)
-                    .label(label);
-                  // Restore model and structured output
-                  const restoredLLMNode = dagBuilder.getBuilder().getNode(node.id);
-                  if (restoredLLMNode && restoredLLMNode.type === NodeType.LLM) {
-                    if (node.data.model) {
-                      restoredLLMNode.model = node.data.model;
-                    }
-                    if (node.data.structuredOutput) {
-                      restoredLLMNode.structuredOutput = node.data.structuredOutput;
-                    }
-                  }
-                  break;
-                case NodeType.EXA_SEARCH:
-                  dagBuilder
-                    .exaSearch(node.id)
-                    .label(label);
-                  const restoredExaNode = dagBuilder.getBuilder().getNode(node.id);
-                  if (restoredExaNode && restoredExaNode.type === NodeType.EXA_SEARCH) {
-                    if (node.data.exaConfig) {
-                      restoredExaNode.config = { ...restoredExaNode.config, ...node.data.exaConfig };
-                    }
-                  }
-                  break;
-                case NodeType.CONSOLE:
-                  dagBuilder.consoleSink(node.id).label(label);
-                  break;
-            }
-          }
-        });
-
-          // Restore connections
-          parsed.edges.forEach((edge: Edge) => {
-            if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle) {
-              dagBuilder.connect(
-                edge.source,
-                edge.sourceHandle,
-                edge.target,
-                edge.targetHandle
-              );
-            }
-          });
         }
       } catch (error) {
         console.error('Error loading saved state:', error);
@@ -1074,9 +583,6 @@ function App() {
       <div className="toolbar">
         <h1>Composable Search - DAG Editor</h1>
         <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-          <button type="button" onClick={() => setShowConfigPanel(true)}>
-            ⚙️ Config
-          </button>
           <button type="button" onClick={onSave}>Save DAG as JSON</button>
           <button type="button" onClick={onLoad}>Load DAG from JSON</button>
           <button 
@@ -1166,59 +672,8 @@ function App() {
             if (!node) return null;
 
             const nodeType = node.data.nodeType as NodeType;
-            const dagNode = dagBuilder.getBuilder().getNode(editingNodeId);
-            
-            // Get current values from DAG node or visual node (DAG node takes precedence)
-            const currentLabel = dagNode?.label || node.data.label || '';
-            
-            // For LITERAL nodes, get value from DAG node first, then visual node
-            let currentValue: string | number | boolean | null | undefined = undefined;
-    if (nodeType === NodeType.LITERAL) {
-      if (dagNode && dagNode.type === NodeType.LITERAL) {
-                currentValue = dagNode.value;
-              } else {
-                currentValue = node.data.value;
-              }
-            } else {
-              currentValue = node.data.value;
-            }
-            
-            // For LLM nodes, get model and structured output from DAG node first, then visual node
-            let currentModel: string | undefined = undefined;
-            let currentStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
-            
-            if (nodeType === NodeType.LLM) {
-              if (dagNode && dagNode.type === NodeType.LLM) {
-                currentModel = dagNode.model;
-                currentStructuredOutput = dagNode.structuredOutput;
-              } else {
-                currentModel = node.data.model || 'openai/gpt-4o';
-                currentStructuredOutput = node.data.structuredOutput;
-              }
-            }
-
-            // For Exa Search nodes, get config from DAG node first, then visual node
-            let currentExaConfig: {
-              searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-              includeDomains?: string[];
-              excludeDomains?: string[];
-              includeText?: string[];
-              excludeText?: string[];
-              category?: string;
-              numResults?: number;
-              text?: boolean;
-              contents?: boolean | { numChars?: number };
-              highlights?: boolean;
-              summary?: boolean;
-            } | undefined = undefined;
-
-            if (nodeType === NodeType.EXA_SEARCH) {
-              if (dagNode && dagNode.type === NodeType.EXA_SEARCH) {
-                currentExaConfig = dagNode.config;
-              } else {
-                currentExaConfig = node.data.exaConfig;
-              }
-            }
+            const currentLabel = node.data.label || '';
+            const currentValue = node.data.value;
 
             return (
               <NodeEditor
@@ -1226,30 +681,11 @@ function App() {
                 nodeType={nodeType}
                 currentLabel={currentLabel}
                 currentValue={currentValue}
-                currentModel={currentModel}
-                currentStructuredOutput={currentStructuredOutput}
-                currentExaConfig={currentExaConfig}
                 onSave={(config) => onNodeSave(editingNodeId, config)}
                 onClose={() => setEditingNodeId(null)}
               />
             );
           })()}
-      {showConfigPanel && (
-        <ConfigPanel
-          config={dagConfig}
-          onConfigChange={(newConfig) => {
-            // Ensure secrets are not saved
-            const configToSave = {
-              ...newConfig,
-              secrets: undefined,
-            };
-            setDagConfig(configToSave);
-            // Save config to localStorage (without secrets)
-            localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(configToSave));
-          }}
-          onClose={() => setShowConfigPanel(false)}
-        />
-      )}
     </div>
   );
 }

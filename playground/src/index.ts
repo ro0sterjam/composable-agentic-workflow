@@ -3,7 +3,10 @@ import {
   ConsoleTerminalNode,
   serializeStandAloneNode,
   executeDAG,
+  defaultExecutorRegistry,
 } from '../../sdk/src/index';
+import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
 
 /**
  * Playground for testing the DAG SDK
@@ -11,6 +14,10 @@ import {
 
 async function main() {
   console.log('Playground starting...\n');
+
+  // Register executors
+  defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
+  defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
 
   // Create a simple DAG: literal source -> console terminal
   const source = new LiteralSourceNode('start', { value: 'Hello, world!' });

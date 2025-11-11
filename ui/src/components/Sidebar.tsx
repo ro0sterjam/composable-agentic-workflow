@@ -1,19 +1,13 @@
 import React from 'react';
-import { NodeType } from '../../../sdk/src/types';
+import { NodeType } from '../types';
 
 interface SidebarProps {
   onNodeAdd: (nodeType: NodeType) => void;
 }
 
 const nodeTypes = [
-  { type: NodeType.CONDITIONAL, label: 'Conditional', icon: '❓', description: 'Branch logic' },
-  { type: NodeType.LOOP, label: 'Loop', icon: '🔁', description: 'Iterate sub-DAG' },
-  { type: NodeType.FAN_OUT, label: 'Fan Out', icon: '🔀', description: 'Duplicate input' },
-  { type: NodeType.AGGREGATOR, label: 'Aggregator', icon: '📊', description: 'Combine inputs' },
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦', description: 'Literal value (no input)' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥', description: 'Logs input to console' },
-  { type: NodeType.LLM, label: 'LLM', icon: '🤖', description: 'LLM execution' },
-  { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍', description: 'Web search via Exa' },
 ];
 
 function Sidebar({ onNodeAdd }: SidebarProps) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { NodeType } from '../../../sdk/src/types';
+import { NodeType } from '../types';
 
 interface CustomNodeData {
   label: string;
@@ -30,30 +30,18 @@ interface CustomNodeData {
 }
 
 const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: string }> = {
-  [NodeType.CONDITIONAL]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
-  [NodeType.LOOP]: { bg: '#e9d5ff', border: '#a855f7', text: '#6b21a8' },
-  [NodeType.FAN_OUT]: { bg: '#fce7f3', border: '#ec4899', text: '#9f1239' },
-  [NodeType.AGGREGATOR]: { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
   [NodeType.LITERAL]: { bg: '#f3f4f6', border: '#6b7280', text: '#374151' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
-  [NodeType.LLM]: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b' },
-  [NodeType.EXA_SEARCH]: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
-  [NodeType.CONDITIONAL]: '❓',
-  [NodeType.LOOP]: '🔁',
-  [NodeType.FAN_OUT]: '🔀',
-  [NodeType.AGGREGATOR]: '📊',
   [NodeType.LITERAL]: '📦',
   [NodeType.CONSOLE]: '📥',
-  [NodeType.LLM]: '🤖',
-  [NodeType.EXA_SEARCH]: '🔍',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
   const nodeType = data.nodeType as NodeType;
-  const colors = nodeTypeColors[nodeType] || nodeTypeColors[NodeType.CONDITIONAL];
+  const colors = nodeTypeColors[nodeType] || nodeTypeColors[NodeType.LITERAL];
   const icon = nodeTypeIcons[nodeType] || '⚙️';
   const executionState = data.executionState || 'idle';
 
@@ -146,28 +134,6 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             </span>
           </div>
         )}
-      {nodeType === NodeType.LLM && (
-        <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
-          <span className="port-label">Model: {data.model || 'openai/gpt-4o'}</span>
-          {data.structuredOutput && (
-            <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
-              Structured: {data.structuredOutput.mode || 'json'}
-            </span>
-          )}
-        </div>
-      )}
-      {nodeType === NodeType.EXA_SEARCH && (
-        <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
-          <span className="port-label">
-            Type: {data.exaConfig?.searchType || 'auto'} | Results: {data.exaConfig?.numResults || 10}
-          </span>
-          {data.exaConfig?.category && (
-            <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
-              Category: {data.exaConfig.category}
-            </span>
-          )}
-        </div>
-      )}
       </div>
     </div>
   );

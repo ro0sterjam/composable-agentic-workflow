@@ -1,6 +1,3 @@
-import { ConsoleTerminalExecutor } from './console';
-import { LiteralSourceExecutor } from './literal';
-
 /**
  * Transformer node executor - executes transformer nodes
  */
@@ -123,7 +120,3 @@ export class ExecutorRegistry {
  * Default executor registry
  */
 export const defaultExecutorRegistry = new ExecutorRegistry();
-
-// Register default executors for built-in node types
-defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
-defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
