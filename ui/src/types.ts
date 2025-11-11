@@ -17,6 +17,7 @@ export const NODE_TYPES = {
   CACHE: 'cache',
   EXTRACT: 'extract',
   FILTER: 'filter',
+  AGENT: 'agent',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc

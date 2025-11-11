@@ -564,6 +564,9 @@ function App() {
                   ...(config.filterConfig !== undefined && {
                     filterConfig: config.filterConfig,
                   }),
+                  ...(config.agentConfig !== undefined && {
+                    agentConfig: config.agentConfig,
+                  }),
                 },
               }
             : node
@@ -665,6 +668,43 @@ function App() {
             type: 'smoothstep',
             animated: false,
           });
+        }
+      }
+      
+      // Check if this is an Agent node with tools
+      if (nodeType === NodeType.AGENT && node.data.agentConfig?.tools) {
+        for (const tool of node.data.agentConfig.tools) {
+          if (tool.transformerId) {
+            const transformerId = tool.transformerId;
+            const transformerNode = nodes.find((n) => n.id === transformerId);
+            
+            if (transformerNode) {
+              virtualEdges.push({
+                id: `transformer-edge-${node.id}-${transformerId}-${tool.name}`,
+                source: node.id,
+                target: transformerId,
+                sourceHandle: 'bottom',
+                targetHandle: 'top',
+                style: {
+                  stroke: '#c084fc',
+                  strokeWidth: 2,
+                  strokeDasharray: '5,5',
+                  opacity: 0.6,
+                },
+                type: 'smoothstep',
+                animated: false,
+                label: tool.name,
+                labelStyle: {
+                  fontSize: '10px',
+                  fill: '#c084fc',
+                },
+                labelBgStyle: {
+                  fill: '#1a1a1a',
+                  fillOpacity: 0.8,
+                },
+              });
+            }
+          }
         }
       }
     }
@@ -793,6 +833,7 @@ function App() {
             const currentFilterConfig = node.data.filterConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
+            const currentAgentConfig = node.data.agentConfig;
 
             // Get available transformer nodes (exclude source, terminal, and map nodes)
             const transformerNodeTypes: NodeType[] = [
@@ -828,6 +869,7 @@ function App() {
                 currentFilterConfig={currentFilterConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
+                currentAgentConfig={currentAgentConfig}
                 availableTransformers={availableTransformers}
                 onSave={(config) => onNodeSave(editingNodeId, config)}
                 onClose={() => setEditingNodeId(null)}

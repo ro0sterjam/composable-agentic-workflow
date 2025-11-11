@@ -6,6 +6,39 @@ import type { SerializedDAG, SerializedNode, SerializedEdge } from '../types';
  * Convert ReactFlow nodes and edges to SerializedDAG format
  */
 export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): SerializedDAG {
+  // Build a set of all node IDs that are referenced (by transformerId in map/flatmap/agent)
+  const referencedNodeIds = new Set<string>();
+  
+  // Find all referenced nodes from map/flatmap/agent configs
+  for (const node of nodes) {
+    const nodeType = node.data.nodeType as string;
+    if (nodeType === 'map' && node.data.mapConfig?.transformerId) {
+      referencedNodeIds.add(node.data.mapConfig.transformerId);
+    } else if (nodeType === 'flatmap' && node.data.flatmapConfig?.transformerId) {
+      referencedNodeIds.add(node.data.flatmapConfig.transformerId);
+    } else if (nodeType === 'agent' && node.data.agentConfig?.tools) {
+      for (const tool of node.data.agentConfig.tools) {
+        if (tool.transformerId) {
+          referencedNodeIds.add(tool.transformerId);
+        }
+      }
+    }
+  }
+  
+  // Build a map of node ID to node for quick lookup
+  const nodeMap = new Map<string, Node>();
+  for (const node of nodes) {
+    nodeMap.set(node.id, node);
+  }
+  
+  // Ensure all referenced nodes are included (they should already be, but verify)
+  const allNodeIds = new Set(nodes.map(n => n.id));
+  for (const referencedId of referencedNodeIds) {
+    if (!allNodeIds.has(referencedId)) {
+      console.warn(`Warning: Referenced node ${referencedId} not found in nodes array`);
+    }
+  }
+
   const serializedNodes: SerializedNode[] = nodes.map((node) => {
     const nodeType = node.data.nodeType as string;
     const config: Record<string, unknown> = {};
@@ -109,6 +142,43 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
         config.expression = node.data.filterConfig.expression;
       } else {
         throw new Error(`Filter node ${node.id} requires an expression`);
+      }
+    } else if (nodeType === 'agent') {
+      if (node.data.agentConfig) {
+        config.model = node.data.agentConfig.model || 'openai/gpt-4o-mini';
+        if (node.data.agentConfig.system) {
+          config.system = node.data.agentConfig.system;
+        }
+        if (node.data.agentConfig.tools && node.data.agentConfig.tools.length > 0) {
+          config.tools = node.data.agentConfig.tools.map((tool: {
+            name: string;
+            description: string;
+            inputSchema: string;
+            transformerId: string;
+          }) => {
+            // Parse the inputSchema string to JSON Schema object
+            let inputSchema: Record<string, unknown>;
+            try {
+              inputSchema = JSON.parse(tool.inputSchema);
+            } catch {
+              // If parsing fails, use default string schema
+              inputSchema = { type: 'string' };
+            }
+            return {
+              name: tool.name,
+              description: tool.description,
+              inputSchema,
+              transformerId: tool.transformerId,
+            };
+          });
+        } else {
+          throw new Error(`Agent node ${node.id} requires at least one tool`);
+        }
+        if (node.data.agentConfig.maxLoops !== undefined) {
+          config.maxLoops = node.data.agentConfig.maxLoops;
+        }
+      } else {
+        throw new Error(`Agent node ${node.id} requires configuration`);
       }
     }
 

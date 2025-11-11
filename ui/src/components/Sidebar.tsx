@@ -16,6 +16,7 @@ const nodeTypes = [
   { type: NodeType.FILTER, label: 'Filter', icon: '🔍', description: 'Filter array items by expression' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️', description: 'Apply transformer to array elements' },
   { type: NodeType.FLATMAP, label: 'FlatMap', icon: '📋', description: 'Apply transformer and flatten results' },
+  { type: NodeType.AGENT, label: 'Agent', icon: '🧠', description: 'AI agent with tool calling capabilities' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️', description: 'Log input and forward unchanged' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥', description: 'Logs input to console' },
 ];

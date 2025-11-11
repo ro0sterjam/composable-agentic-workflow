@@ -8,6 +8,7 @@ import DedupeNodeEditor from './DedupeNodeEditor';
 import CacheNodeEditor from './CacheNodeEditor';
 import ExtractNodeEditor from './ExtractNodeEditor';
 import FilterNodeEditor from './FilterNodeEditor';
+import AgentNodeEditor from './AgentNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -62,6 +63,18 @@ interface NodeEditorProps {
   currentFlatmapConfig?: {
     transformerId?: string;
     parallel?: boolean;
+  };
+  currentAgentConfig?: {
+    model?: string;
+    system?: string;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: string;
+      transformerId: string;
+      transformerLabel?: string;
+    }>;
+    maxLoops?: number;
   };
   availableTransformers?: Array<{ id: string; label: string; type: string }>;
   onSave: (config: NodeConfig) => void;
@@ -122,6 +135,18 @@ export interface NodeConfig {
   filterConfig?: {
     expression: string;
   };
+  agentConfig?: {
+    model?: string;
+    system?: string;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: string;
+      transformerId: string;
+      transformerLabel?: string;
+    }>;
+    maxLoops?: number;
+  };
 }
 
 function NodeEditor({
@@ -138,6 +163,7 @@ function NodeEditor({
   currentFilterConfig,
   currentMapConfig,
   currentFlatmapConfig,
+  currentAgentConfig,
   availableTransformers = [],
   onSave,
   onClose,
@@ -479,6 +505,23 @@ function NodeEditor({
           </div>
         </div>
       </>
+    );
+  }
+
+  // Special editor for AGENT nodes
+  if (nodeType === NodeType.AGENT) {
+    return (
+      <AgentNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentAgentConfig}
+        availableTransformers={availableTransformers}
+        onSave={(label, config) => {
+          onSave({ label, agentConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
     );
   }
 

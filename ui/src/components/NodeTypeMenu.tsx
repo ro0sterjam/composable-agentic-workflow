@@ -17,6 +17,7 @@ const nodeTypes = [
   { type: NodeType.EXTRACT, label: 'Extract', icon: '📤' },
   { type: NodeType.FILTER, label: 'Filter', icon: '🔍' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️' },
+  { type: NodeType.AGENT, label: 'Agent', icon: '🧠' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },
 ];

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 
 import dotenv from 'dotenv';
 
+import { AgentExecutor } from '../../sdk/src/executors/agent.js';
 import { CacheExecutor } from '../../sdk/src/executors/cache.js';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console.js';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe.js';
@@ -99,6 +100,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
   );
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
+  defaultExecutorRegistry.registerTransformer('agent', new AgentExecutor());
 
   // Load DAG
   let serializedDAG: SerializedDAG;

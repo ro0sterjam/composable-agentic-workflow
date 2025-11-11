@@ -58,6 +58,18 @@ interface CustomNodeData {
   filterConfig?: {
     expression: string;
   };
+  agentConfig?: {
+    model?: string;
+    system?: string;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: string;
+      transformerId: string;
+      transformerLabel?: string;
+    }>;
+    maxLoops?: number;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -75,6 +87,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.CACHE]: { bg: '#ecfdf5', border: '#10b981', text: '#065f46' },
   [NodeType.EXTRACT]: { bg: '#fff7ed', border: '#f97316', text: '#9a3412' },
   [NodeType.FILTER]: { bg: '#ecfeff', border: '#06b6d4', text: '#164e63' },
+  [NodeType.AGENT]: { bg: '#faf5ff', border: '#c084fc', text: '#6b21a8' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -90,6 +103,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.CACHE]: '💾',
   [NodeType.EXTRACT]: '📤',
   [NodeType.FILTER]: '🔍',
+  [NodeType.AGENT]: '🧠',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -164,10 +178,10 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
         />
       )}
 
-      {/* Bottom handle for Map/FlatMap nodes to connect to their transformer (visual only, not connectable) */}
-      {(nodeType === NodeType.MAP || nodeType === NodeType.FLATMAP) && 
-       ((nodeType === NodeType.MAP && data.mapConfig?.transformerId) ||
-        (nodeType === NodeType.FLATMAP && data.flatmapConfig?.transformerId)) && (
+      {/* Bottom handle for Map/FlatMap/Agent nodes to connect to their transformer(s) (visual only, not connectable) */}
+      {((nodeType === NodeType.MAP && data.mapConfig?.transformerId) ||
+        (nodeType === NodeType.FLATMAP && data.flatmapConfig?.transformerId) ||
+        (nodeType === NodeType.AGENT && data.agentConfig?.tools && data.agentConfig.tools.length > 0)) && (
         <Handle
           type="source"
           position={Position.Bottom}
@@ -364,6 +378,25 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
                 {data.filterConfig.expression.length > 40
                   ? `${data.filterConfig.expression.substring(0, 40)}...`
                   : data.filterConfig.expression}
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.AGENT && data.agentConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.agentConfig.model && (
+              <div style={{ marginBottom: '4px' }}>
+                Model: {data.agentConfig.model.split('/')[1] || data.agentConfig.model}
+              </div>
+            )}
+            {data.agentConfig.tools && data.agentConfig.tools.length > 0 && (
+              <div style={{ marginBottom: '4px', fontSize: '10px', opacity: 0.7 }}>
+                Tools: {data.agentConfig.tools.length} tool{data.agentConfig.tools.length !== 1 ? 's' : ''}
+              </div>
+            )}
+            {data.agentConfig.maxLoops && (
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                Max Loops: {data.agentConfig.maxLoops}
               </div>
             )}
           </div>
