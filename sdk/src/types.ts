@@ -17,20 +17,9 @@ export type NodeType = string;
  * Default node type constants
  */
 export const DEFAULT_NODE_TYPES = {
-  LLM: 'llm',
   LITERAL: 'literal',
   CONSOLE: 'console',
-  EXA_SEARCH: 'exa_search',
 } as const;
-
-/**
- * Port definition for inputs/outputs
- */
-export interface Port {
-  id: PortId;
-  label?: string;
-  dataType?: string;
-}
 
 /**
  * Connection between nodes
@@ -47,19 +36,15 @@ export interface Connection {
  * Union type for all node types
  * Imported from nodes to avoid circular dependency
  */
-import type { LLMNode, LiteralSourceNode, ConsoleTerminalNode, ExaSearchNode } from './nodes';
+import type { LiteralSourceNode, ConsoleTerminalNode } from './nodes';
 
-export type { LLMNode, LiteralSourceNode, ConsoleTerminalNode, ExaSearchNode };
+export type { LiteralSourceNode, ConsoleTerminalNode };
 
 /**
  * Union type for all node types
  * Uses 'any' types to allow the union to work with all possible instantiations
  */
-export type Node =
-  | LLMNode<any, any>
-  | LiteralSourceNode<any>
-  | ConsoleTerminalNode<any>
-  | ExaSearchNode<any, any>;
+export type Node = LiteralSourceNode<any> | ConsoleTerminalNode<any>;
 
 /**
  * DAG structure (serializable version)
@@ -80,38 +65,8 @@ export interface SerializableNode {
   type: NodeType;
   label?: string;
   metadata?: Record<string, unknown>;
-  // Execution node fields
-  inputPorts?: Port[];
-  outputPorts?: Port[];
   // Literal node fields
   value?: string | number | boolean | null | undefined;
-  // LLM node fields
-  model?: string;
-  schema?: Record<string, unknown>; // JSONSchema7
-  mode?: 'auto' | 'json' | 'tool';
-  // Exa Search node fields
-  config?: {
-    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-    includeDomains?: string[];
-    excludeDomains?: string[];
-    includeText?: string[];
-    excludeText?: string[];
-    category?:
-      | 'company'
-      | 'research paper'
-      | 'news'
-      | 'pdf'
-      | 'github'
-      | 'tweet'
-      | 'personal site'
-      | 'linkedin profile'
-      | 'financial report';
-    numResults?: number;
-    text?: boolean;
-    contents?: boolean | { numChars?: number };
-    highlights?: boolean;
-    summary?: boolean;
-  };
 }
 
 /**

@@ -172,21 +172,7 @@ export class DAGBuilder {
             : undefined,
       };
 
-      // Check for execution-like nodes (EXA_SEARCH, etc.)
-      if (node.type === DEFAULT_NODE_TYPES.EXA_SEARCH) {
-        const execNode = node as { inputPorts: any[]; outputPorts: any[] };
-        serializable.inputPorts = execNode.inputPorts;
-        serializable.outputPorts = execNode.outputPorts;
-      } else if (node.type === DEFAULT_NODE_TYPES.LLM) {
-        const llmNode = node as
-          | import('./nodes/llm').LLMTransformerNode<any>
-          | import('./nodes/llm').LLMWithStructuredTransformerNode<any, any>;
-        serializable.model = llmNode.model;
-        if ('schema' in llmNode) {
-          serializable.schema = (llmNode as { schema: unknown }).schema;
-          serializable.mode = (llmNode as { mode?: 'auto' | 'json' | 'tool' }).mode;
-        }
-      } else if (node.type === DEFAULT_NODE_TYPES.LITERAL) {
+      if (node.type === DEFAULT_NODE_TYPES.LITERAL) {
         const literalNode = node as LiteralSourceNode<any>;
         serializable.value = literalNode.value;
       } else if (node.type === DEFAULT_NODE_TYPES.CONSOLE) {

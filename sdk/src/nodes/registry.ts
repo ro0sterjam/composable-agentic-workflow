@@ -1,12 +1,7 @@
-import type { JSONSchema7 } from '@ai-sdk/provider';
-
-import { executeExaSearchNode } from '../exa-executor';
 import { DEFAULT_NODE_TYPES } from '../types';
 
 import { ConsoleTerminalNode } from './console';
-import { ExaSearchNode } from './exa-search';
 import { LiteralSourceNode } from './literal';
-import { LLMTransformerNode, LLMWithStructuredTransformerNode, LLMModel } from './llm';
 import type { TransformerNode, SourceNode, TerminalNode, StandAloneNode } from './types';
 
 /**
@@ -73,39 +68,6 @@ defaultNodeRegistry.register(DEFAULT_NODE_TYPES.LITERAL, (data: any) => {
   return new LiteralSourceNode(data.id, data.value, data.label || data.id);
 });
 
-defaultNodeRegistry.register(DEFAULT_NODE_TYPES.LLM, (data: any) => {
-  if (data.schema) {
-    return new LLMWithStructuredTransformerNode(
-      data.id,
-      data.model || LLMModel.GPT_4O,
-      data.schema as JSONSchema7,
-      data.mode || 'auto',
-      data.label || data.id
-    );
-  } else {
-    return new LLMTransformerNode(data.id, data.model || LLMModel.GPT_4O, data.label || data.id);
-  }
-});
-
 defaultNodeRegistry.register(DEFAULT_NODE_TYPES.CONSOLE, (data: any) => {
   return new ConsoleTerminalNode(data.id, data.label || data.id);
-});
-
-defaultNodeRegistry.register(DEFAULT_NODE_TYPES.EXA_SEARCH, (data: any) => {
-  const node = new ExaSearchNode(
-    data.id,
-    data.config || {
-      searchType: 'auto',
-      text: true,
-      numResults: 10,
-    },
-    data.inputPorts || [{ id: 'input', label: 'Input' }],
-    data.outputPorts || [{ id: 'output', label: 'Output' }],
-    data.label || data.id
-  );
-  // Set execute function that calls executeExaSearchNode
-  node.execute = async (input: any) => {
-    return executeExaSearchNode(input, node.searchConfig);
-  };
-  return node;
 });

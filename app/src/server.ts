@@ -20,7 +20,7 @@ app.use(express.json({ limit: '10mb' }));
  * Execute a DAG and stream logs via Server-Sent Events
  */
 app.post('/api/execute', async (req: express.Request, res: express.Response) => {
-  const { dagJson, config } = req.body;
+  const { dagJson } = req.body;
 
   if (!dagJson) {
     return res.status(400).json({ error: 'dagJson is required' });
@@ -45,7 +45,6 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
 
   try {
     console.log('[Server] Received DAG execution request');
-    console.log('[Server] Config:', config ? JSON.stringify(config, null, 2) : 'No config provided');
     
     // dagJson is already a parsed object from req.body, so we need to stringify it
     // But if it's already a string, we should use it as-is
@@ -56,7 +55,6 @@ app.post('/api/execute', async (req: express.Request, res: express.Response) => 
     
     await executeDAG({
       dagJson: dagJsonString,
-      config,
       verbose: true,
       onLog: (type, message, nodeId) => {
         // Send to UI
