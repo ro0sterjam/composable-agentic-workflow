@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
@@ -12,7 +13,6 @@ import { StructuredLLMExecutor } from '../../sdk/src/executors/structured-llm';
 import {
   LiteralSourceNode,
   ConsoleTerminalNode,
-  SimpleLLMTransformerNode,
   serializeStandAloneNode,
   executeDAG,
   defaultExecutorRegistry,
@@ -21,6 +21,7 @@ import {
   FlatMapTransformerNode,
   PeekTransformerNode,
   ExaSearchTransformerNode,
+  DedupeTransformerNode,
 } from '../../sdk/src/index';
 
 // Load environment variables
@@ -39,6 +40,7 @@ async function main() {
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
   defaultExecutorRegistry.registerTransformer('exa_search', new ExaSearchExecutor());
+  defaultExecutorRegistry.registerTransformer('dedupe', new DedupeExecutor());
   defaultExecutorRegistry.registerTransformer('peek', new PeekTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('map', new MapTransformerExecutor());
   defaultExecutorRegistry.registerTransformer('flatmap', new FlatMapTransformerExecutor());
@@ -53,6 +55,7 @@ async function main() {
       })
     )
     .pipe(new FlatMapTransformerNode('flatmap', new ExaSearchTransformerNode('exa_search')))
+    .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
     .pipe(new MapTransformerNode('map', new PeekTransformerNode('peek')))
     .terminate(new ConsoleTerminalNode('end'));
 

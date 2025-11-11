@@ -45,6 +45,10 @@ interface CustomNodeData {
       | 'linkedin profile'
       | 'financial report';
   };
+  dedupeConfig?: {
+    byProperty?: string;
+    method?: 'first' | 'last' | 'most frequent';
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -58,6 +62,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.PEEK]: { bg: '#f0f9ff', border: '#0ea5e9', text: '#0c4a6e' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
   [NodeType.EXA_SEARCH]: { bg: '#fef3f4', border: '#f87171', text: '#991b1b' },
+  [NodeType.DEDUPE]: { bg: '#f5f3ff', border: '#a78bfa', text: '#5b21b6' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -69,6 +74,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.PEEK]: '👁️',
   [NodeType.CONSOLE]: '📥',
   [NodeType.EXA_SEARCH]: '🔍',
+  [NodeType.DEDUPE]: '🔀',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -255,6 +261,25 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             {data.exaSearchConfig.includeDomains && data.exaSearchConfig.includeDomains.length > 0 && (
               <div style={{ fontSize: '10px', opacity: 0.7 }}>
                 Include: {data.exaSearchConfig.includeDomains.join(', ')}
+              </div>
+            )}
+          </div>
+        )}
+        {nodeType === NodeType.DEDUPE && data.dedupeConfig && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
+            {data.dedupeConfig.byProperty && (
+              <div style={{ marginBottom: '4px' }}>
+                Property: {data.dedupeConfig.byProperty}
+              </div>
+            )}
+            {data.dedupeConfig.method && (
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>
+                Method: {data.dedupeConfig.method}
+              </div>
+            )}
+            {!data.dedupeConfig.byProperty && (
+              <div style={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic' }}>
+                Deduping by value
               </div>
             )}
           </div>

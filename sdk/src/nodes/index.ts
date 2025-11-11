@@ -11,4 +11,5 @@ export * from './impl/map';
 export * from './impl/flatmap';
 export * from './impl/peek';
 export * from './impl/exa-search';
+export * from './impl/dedupe';
 export * from '../executors/registry';

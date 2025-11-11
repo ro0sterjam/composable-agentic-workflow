@@ -545,6 +545,9 @@ function App() {
                   ...(config.exaSearchConfig !== undefined && {
                     exaSearchConfig: config.exaSearchConfig,
                   }),
+                  ...(config.dedupeConfig !== undefined && {
+                    dedupeConfig: config.dedupeConfig,
+                  }),
                 },
               }
             : node
@@ -693,6 +696,7 @@ function App() {
             const currentLLMConfig = node.data.llmConfig;
             const currentStructuredLLMConfig = node.data.structuredLLMConfig;
             const currentExaSearchConfig = node.data.exaSearchConfig;
+            const currentDedupeConfig = node.data.dedupeConfig;
             const currentMapConfig = node.data.mapConfig;
             const currentFlatmapConfig = node.data.flatmapConfig;
 
@@ -723,6 +727,7 @@ function App() {
                 currentLLMConfig={currentLLMConfig}
                 currentStructuredLLMConfig={currentStructuredLLMConfig}
                 currentExaSearchConfig={currentExaSearchConfig}
+                currentDedupeConfig={currentDedupeConfig}
                 currentMapConfig={currentMapConfig}
                 currentFlatmapConfig={currentFlatmapConfig}
                 availableTransformers={availableTransformers}

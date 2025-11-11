@@ -83,6 +83,15 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
         config.type = 'auto';
         config.numResults = 10;
       }
+    } else if (nodeType === 'dedupe') {
+      if (node.data.dedupeConfig) {
+        config.method = node.data.dedupeConfig.method || 'first';
+        if (node.data.dedupeConfig.byProperty) {
+          config.byProperty = node.data.dedupeConfig.byProperty;
+        }
+      } else {
+        config.method = 'first';
+      }
     }
 
   return {

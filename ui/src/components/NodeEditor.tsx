@@ -4,6 +4,7 @@ import DataNodeEditor from './DataNodeEditor';
 import LLMNodeEditor from './LLMNodeEditor';
 import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
 import ExaSearchNodeEditor from './ExaSearchNodeEditor';
+import DedupeNodeEditor from './DedupeNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -37,6 +38,10 @@ interface NodeEditorProps {
       | 'personal site'
       | 'linkedin profile'
       | 'financial report';
+  };
+  currentDedupeConfig?: {
+    byProperty?: string;
+    method?: 'first' | 'last' | 'most frequent';
   };
   currentMapConfig?: {
     transformerId?: string;
@@ -92,6 +97,10 @@ export interface NodeConfig {
       | 'linkedin profile'
       | 'financial report';
   };
+  dedupeConfig?: {
+    byProperty?: string;
+    method?: 'first' | 'last' | 'most frequent';
+  };
 }
 
 function NodeEditor({
@@ -102,6 +111,7 @@ function NodeEditor({
   currentLLMConfig,
   currentStructuredLLMConfig,
   currentExaSearchConfig,
+  currentDedupeConfig,
   currentMapConfig,
   currentFlatmapConfig,
   availableTransformers = [],
@@ -188,6 +198,22 @@ function NodeEditor({
         currentConfig={currentExaSearchConfig}
         onSave={(label, config) => {
           onSave({ label, exaSearchConfig: config });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for DEDUPE nodes
+  if (nodeType === NodeType.DEDUPE) {
+    return (
+      <DedupeNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentDedupeConfig}
+        onSave={(label, config) => {
+          onSave({ label, dedupeConfig: config });
           onClose();
         }}
         onClose={onClose}

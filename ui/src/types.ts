@@ -13,6 +13,7 @@ export const NODE_TYPES = {
   FLATMAP: 'flatmap',
   PEEK: 'peek',
   EXA_SEARCH: 'exa_search',
+  DEDUPE: 'dedupe',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc

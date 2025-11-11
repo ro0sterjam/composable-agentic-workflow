@@ -12,6 +12,7 @@ const nodeTypes = [
   { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖' },
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯' },
   { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍' },
+  { type: NodeType.DEDUPE, label: 'Dedupe', icon: '🔀' },
   { type: NodeType.MAP, label: 'Map', icon: '🗺️' },
   { type: NodeType.PEEK, label: 'Peek', icon: '👁️' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },
