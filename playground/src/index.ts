@@ -1,12 +1,19 @@
+import dotenv from 'dotenv';
+
+import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
+import { SimpleLLMExecutor } from '../../sdk/src/executors/llm';
 import {
   LiteralSourceNode,
   ConsoleTerminalNode,
+  SimpleLLMTransformerNode,
   serializeStandAloneNode,
   executeDAG,
   defaultExecutorRegistry,
 } from '../../sdk/src/index';
-import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
-import { LiteralSourceExecutor } from '../../sdk/src/executors/literal';
+
+// Load environment variables
+dotenv.config();
 
 /**
  * Playground for testing the DAG SDK
@@ -18,11 +25,12 @@ async function main() {
   // Register executors
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
+  defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
 
-  // Create a simple DAG: literal source -> console terminal
-  const source = new LiteralSourceNode('start', { value: 'Hello, world!' });
-  const terminal = new ConsoleTerminalNode('end');
-  const standalone = source.terminate(terminal);
+  // Create a simple DAG: literal source -> LLM transformer -> console terminal
+  const standalone = new LiteralSourceNode('start', { value: 'Hi there' })
+    .pipe(new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-5' }))
+    .terminate(new ConsoleTerminalNode('end'));
 
   console.log('DAG created:', standalone.id);
 

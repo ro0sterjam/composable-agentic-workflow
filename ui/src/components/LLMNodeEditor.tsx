@@ -1,97 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { NodeType } from '../types';
-import DataNodeEditor from './DataNodeEditor';
-import LLMNodeEditor from './LLMNodeEditor';
 
-interface NodeEditorProps {
+interface LLMNodeEditorProps {
   nodeId: string;
-  nodeType: NodeType;
   currentLabel?: string;
-  currentValue?: string | number | boolean | null | undefined;
-  currentLLMConfig?: {
+  currentConfig?: {
     model?: 'openai/gpt-5';
     system?: string;
     prompt?: string;
   };
-  onSave: (config: NodeConfig) => void;
+  onSave: (label: string, config: { model: 'openai/gpt-5'; system?: string; prompt?: string }) => void;
   onClose: () => void;
 }
 
-export interface NodeConfig {
-  label?: string;
-  value?: string | number | boolean | null | undefined;
-  llmConfig?: {
-    model?: 'openai/gpt-5';
-    system?: string;
-    prompt?: string;
-  };
-}
-
-function NodeEditor({
-  nodeId,
-  nodeType,
-  currentLabel,
-  currentValue,
-  currentLLMConfig,
-  onSave,
-  onClose,
-}: NodeEditorProps) {
+function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }: LLMNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
+  const [model, setModel] = useState<'openai/gpt-5'>((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
+  const [system, setSystem] = useState(currentConfig?.system || '');
+  const [prompt, setPrompt] = useState(currentConfig?.prompt || '');
 
   useEffect(() => {
     setLabel(currentLabel || '');
-  }, [currentLabel]);
+    setModel((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
+    setSystem(currentConfig?.system || '');
+    setPrompt(currentConfig?.prompt || '');
+  }, [currentLabel, currentConfig]);
 
   const handleSave = () => {
-    onSave({ label });
+    onSave(label, {
+      model,
+      ...(system && { system }),
+      ...(prompt && { prompt }),
+    });
     onClose();
   };
 
-  // Special editor for LITERAL nodes
-  if (nodeType === NodeType.LITERAL) {
-    let currentType: 'string' | 'number' | 'boolean' | 'null' = 'string';
-    if (typeof currentValue === 'number') {
-      currentType = 'number';
-    } else if (typeof currentValue === 'boolean') {
-      currentType = 'boolean';
-    } else if (currentValue === null) {
-      currentType = 'null';
-    } else {
-      currentType = 'string';
-    }
-
-    return (
-      <DataNodeEditor
-        nodeId={nodeId}
-        currentLabel={currentLabel}
-        currentValue={currentValue}
-        currentType={currentType}
-        onSave={(id, value, type, label) => {
-          onSave({ label: label || undefined, value });
-          onClose();
-        }}
-        onClose={onClose}
-      />
-    );
-  }
-
-  // Special editor for SIMPLE_LLM nodes
-  if (nodeType === NodeType.SIMPLE_LLM) {
-    return (
-      <LLMNodeEditor
-        nodeId={nodeId}
-        currentLabel={currentLabel}
-        currentConfig={currentLLMConfig}
-        onSave={(label, config) => {
-          onSave({ label, llmConfig: config });
-          onClose();
-        }}
-        onClose={onClose}
-      />
-    );
-  }
-
-  // Generic editor for other node types
   return (
     <>
       <div
@@ -118,14 +60,14 @@ function NodeEditor({
             border: '1px solid #4a4a4a',
             borderRadius: '12px',
             padding: '24px',
-            minWidth: '400px',
-            maxWidth: '500px',
+            minWidth: '500px',
+            maxWidth: '600px',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
             zIndex: 2001,
           }}
         >
           <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '18px', fontWeight: 600 }}>
-            Configure {nodeType.charAt(0).toUpperCase() + nodeType.slice(1).replace('_', ' ')} Node
+            Configure Simple LLM Node
           </h2>
 
           <div style={{ marginBottom: '20px' }}>
@@ -147,6 +89,73 @@ function NodeEditor({
                 fontSize: '14px',
               }}
               autoFocus
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+              Model
+            </label>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value as 'openai/gpt-5')}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#3a3a3a',
+                border: '1px solid #4a4a4a',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+              }}
+            >
+              <option value="openai/gpt-5">OpenAI GPT-5</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+              System Prompt (optional)
+            </label>
+            <textarea
+              value={system}
+              onChange={(e) => setSystem(e.target.value)}
+              placeholder="Enter system prompt"
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#3a3a3a',
+                border: '1px solid #4a4a4a',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+              User Prompt (optional, use ${'{input}'} to interpolate input)
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Enter user prompt (e.g., 'Say hello to: ${input}')"
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#3a3a3a',
+                border: '1px solid #4a4a4a',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
             />
           </div>
 
@@ -200,5 +209,5 @@ function NodeEditor({
   );
 }
 
-export default NodeEditor;
+export default LLMNodeEditor;
 

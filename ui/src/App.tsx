@@ -528,6 +528,7 @@ function App() {
                   ...node.data,
                   ...(config.label !== undefined && { label: config.label }),
                   ...(config.value !== undefined && { value: config.value }),
+                  ...(config.llmConfig !== undefined && { llmConfig: config.llmConfig }),
                 },
               }
             : node
@@ -674,6 +675,7 @@ function App() {
             const nodeType = node.data.nodeType as NodeType;
             const currentLabel = node.data.label || '';
             const currentValue = node.data.value;
+            const currentLLMConfig = node.data.llmConfig;
 
             return (
               <NodeEditor
@@ -681,6 +683,7 @@ function App() {
                 nodeType={nodeType}
                 currentLabel={currentLabel}
                 currentValue={currentValue}
+                currentLLMConfig={currentLLMConfig}
                 onSave={(config) => onNodeSave(editingNodeId, config)}
                 onClose={() => setEditingNodeId(null)}
               />

@@ -7,23 +7,10 @@ interface CustomNodeData {
   nodeType: NodeType;
   id: string;
   value?: string | number | boolean | null | undefined;
-  model?: string;
-  structuredOutput?: {
-    schema: Record<string, unknown>;
-    mode?: 'json' | 'json_schema' | 'tool';
-  };
-  exaConfig?: {
-    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
-    includeDomains?: string[];
-    excludeDomains?: string[];
-    includeText?: string[];
-    excludeText?: string[];
-    category?: string;
-    numResults?: number;
-    text?: boolean;
-    contents?: boolean | { numChars?: number };
-    highlights?: boolean;
-    summary?: boolean;
+  llmConfig?: {
+    model?: 'openai/gpt-5';
+    system?: string;
+    prompt?: string;
   };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
@@ -31,11 +18,13 @@ interface CustomNodeData {
 
 const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: string }> = {
   [NodeType.LITERAL]: { bg: '#f3f4f6', border: '#6b7280', text: '#374151' },
+  [NodeType.SIMPLE_LLM]: { bg: '#e0e7ff', border: '#6366f1', text: '#312e81' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.LITERAL]: '📦',
+  [NodeType.SIMPLE_LLM]: '🤖',
   [NodeType.CONSOLE]: '📥',
 };
 

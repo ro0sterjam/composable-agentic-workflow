@@ -79,13 +79,19 @@ function extractNodesAndEdges(
     // SequentialTransformerNode
     const seqNode = node as any;
     if (seqNode.first && seqNode.second) {
-      // Extract the first and second nodes
+      // Recursively extract the first and second nodes (they might be nested sequential nodes)
       extractNodesAndEdges(seqNode.first, state);
       extractNodesAndEdges(seqNode.second, state);
-      // Create edge from first to second
+      
+      // Find the actual output node from first (could be nested)
+      const firstOutputId = getOutputNodeId(seqNode.first);
+      // Find the actual input node from second (could be nested)
+      const secondInputId = getInputNodeId(seqNode.second);
+      
+      // Create edge from first's output to second's input
       state.edges.push({
-        from: seqNode.first.id,
-        to: seqNode.second.id,
+        from: firstOutputId,
+        to: secondInputId,
       });
       return; // Don't add the sequential node itself
     }
@@ -93,10 +99,14 @@ function extractNodesAndEdges(
     // SequentialTerminalNode
     const seqNode = node as any;
     if (seqNode.transformer && seqNode.terminal) {
+      // Recursively extract the transformer (which might be a SequentialTransformerNode)
       extractNodesAndEdges(seqNode.transformer, state);
       extractNodesAndEdges(seqNode.terminal, state);
+      
+      // Find the actual output node from the transformer (could be nested)
+      const transformerOutputId = getOutputNodeId(seqNode.transformer);
       state.edges.push({
-        from: seqNode.transformer.id,
+        from: transformerOutputId,
         to: seqNode.terminal.id,
       });
       return;
@@ -105,11 +115,19 @@ function extractNodesAndEdges(
     // SequentialSourceNode
     const seqNode = node as any;
     if (seqNode.source && seqNode.transformer) {
+      // Recursively extract the source and transformer (they might be nested sequential nodes)
       extractNodesAndEdges(seqNode.source, state);
       extractNodesAndEdges(seqNode.transformer, state);
+      
+      // Find the actual output node from source (could be nested)
+      const sourceOutputId = getOutputNodeId(seqNode.source);
+      // Find the actual input node from transformer (could be nested)
+      const transformerInputId = getInputNodeId(seqNode.transformer);
+      
+      // Create edge from source's output to transformer's input
       state.edges.push({
-        from: seqNode.source.id,
-        to: seqNode.transformer.id,
+        from: sourceOutputId,
+        to: transformerInputId,
       });
       return;
     }
@@ -117,10 +135,14 @@ function extractNodesAndEdges(
     // SequentialSourceTerminalNode
     const seqNode = node as any;
     if (seqNode.source && seqNode.terminal) {
+      // Recursively extract the source (which might be a SequentialSourceNode)
       extractNodesAndEdges(seqNode.source, state);
       extractNodesAndEdges(seqNode.terminal, state);
+      
+      // Find the actual output node from the source (could be nested)
+      const sourceOutputId = getOutputNodeId(seqNode.source);
       state.edges.push({
-        from: seqNode.source.id,
+        from: sourceOutputId,
         to: seqNode.terminal.id,
       });
       return;
@@ -141,4 +163,80 @@ function extractNodesAndEdges(
   }
 
   state.nodes.set(node.id, serializedNode);
+}
+
+/**
+ * Get the output node ID from a node (recursively traversing sequential nodes)
+ */
+function getOutputNodeId(
+  node: SourceNode<any, any> | TerminalNode<any, any> | TransformerNode<any, any, any>
+): string {
+  const nodeType = node.type;
+  
+  if (nodeType === 'sequential') {
+    // SequentialTransformerNode - get output from second node
+    const seqNode = node as any;
+    if (seqNode.second) {
+      return getOutputNodeId(seqNode.second);
+    }
+  } else if (nodeType === 'sequential_terminal') {
+    // SequentialTerminalNode - get output from transformer
+    const seqNode = node as any;
+    if (seqNode.transformer) {
+      return getOutputNodeId(seqNode.transformer);
+    }
+  } else if (nodeType === 'sequential_source') {
+    // SequentialSourceNode - get output from transformer
+    const seqNode = node as any;
+    if (seqNode.transformer) {
+      return getOutputNodeId(seqNode.transformer);
+    }
+  } else if (nodeType === 'sequential_source_terminal') {
+    // SequentialSourceTerminalNode - get output from source
+    const seqNode = node as any;
+    if (seqNode.source) {
+      return getOutputNodeId(seqNode.source);
+    }
+  }
+  
+  // Regular node - return its ID
+  return node.id;
+}
+
+/**
+ * Get the input node ID from a node (recursively traversing sequential nodes)
+ */
+function getInputNodeId(
+  node: SourceNode<any, any> | TerminalNode<any, any> | TransformerNode<any, any, any>
+): string {
+  const nodeType = node.type;
+  
+  if (nodeType === 'sequential') {
+    // SequentialTransformerNode - get input from first node
+    const seqNode = node as any;
+    if (seqNode.first) {
+      return getInputNodeId(seqNode.first);
+    }
+  } else if (nodeType === 'sequential_terminal') {
+    // SequentialTerminalNode - get input from transformer
+    const seqNode = node as any;
+    if (seqNode.transformer) {
+      return getInputNodeId(seqNode.transformer);
+    }
+  } else if (nodeType === 'sequential_source') {
+    // SequentialSourceNode - get input from source
+    const seqNode = node as any;
+    if (seqNode.source) {
+      return getInputNodeId(seqNode.source);
+    }
+  } else if (nodeType === 'sequential_source_terminal') {
+    // SequentialSourceTerminalNode - get input from source
+    const seqNode = node as any;
+    if (seqNode.source) {
+      return getInputNodeId(seqNode.source);
+    }
+  }
+  
+  // Regular node - return its ID
+  return node.id;
 }

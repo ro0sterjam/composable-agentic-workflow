@@ -13,6 +13,18 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
     // Extract config based on node type
     if (nodeType === 'literal') {
       config.value = node.data.value ?? '';
+    } else if (nodeType === 'simple_llm') {
+      if (node.data.llmConfig) {
+        config.model = node.data.llmConfig.model || 'openai/gpt-5';
+        if (node.data.llmConfig.system) {
+          config.system = node.data.llmConfig.system;
+        }
+        if (node.data.llmConfig.prompt) {
+          config.prompt = node.data.llmConfig.prompt;
+        }
+      } else {
+        config.model = 'openai/gpt-5';
+      }
     }
 
     return {

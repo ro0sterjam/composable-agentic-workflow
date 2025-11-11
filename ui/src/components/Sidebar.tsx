@@ -7,6 +7,7 @@ interface SidebarProps {
 
 const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦', description: 'Literal value (no input)' },
+  { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖', description: 'Transform input using LLM' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥', description: 'Logs input to console' },
 ];
 

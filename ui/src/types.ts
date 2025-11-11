@@ -7,6 +7,7 @@ export type NodeType = string;
 export const NODE_TYPES = {
   LITERAL: 'literal',
   CONSOLE: 'console',
+  SIMPLE_LLM: 'simple_llm',
 } as const;
 
 // For backward compatibility with existing code that uses NodeType.LITERAL etc
