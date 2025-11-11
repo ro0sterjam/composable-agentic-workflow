@@ -1,26 +1,38 @@
 import React, { useState, useEffect } from 'react';
 
+// Model options - matching SDK's MODEL_OPTIONS
+const MODEL_OPTIONS = [
+  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast and affordable' },
+  { value: 'openai/gpt-4o', label: 'GPT-4o', description: 'Fast and capable' },
+  { value: 'openai/gpt-4-turbo', label: 'GPT-4 Turbo', description: 'High performance' },
+  { value: 'openai/gpt-4', label: 'GPT-4', description: 'High quality' },
+  { value: 'openai/gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Fast and cost-effective' },
+  { value: 'openai/gpt-5', label: 'GPT-5', description: 'Latest model' },
+] as const;
+
+type Model = typeof MODEL_OPTIONS[number]['value'];
+
 interface LLMNodeEditorProps {
   nodeId: string;
   currentLabel?: string;
   currentConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     system?: string;
     prompt?: string;
   };
-  onSave: (label: string, config: { model: 'openai/gpt-5'; system?: string; prompt?: string }) => void;
+  onSave: (label: string, config: { model: string; system?: string; prompt?: string }) => void;
   onClose: () => void;
 }
 
 function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }: LLMNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
-  const [model, setModel] = useState<'openai/gpt-5'>((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
+  const [model, setModel] = useState<string>(currentConfig?.model || 'openai/gpt-4o-mini');
   const [system, setSystem] = useState(currentConfig?.system || '');
   const [prompt, setPrompt] = useState(currentConfig?.prompt || '');
 
   useEffect(() => {
     setLabel(currentLabel || '');
-    setModel((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
+    setModel(currentConfig?.model || 'openai/gpt-4o-mini');
     setSystem(currentConfig?.system || '');
     setPrompt(currentConfig?.prompt || '');
   }, [currentLabel, currentConfig]);
@@ -98,7 +110,7 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
             </label>
             <select
               value={model}
-              onChange={(e) => setModel(e.target.value as 'openai/gpt-5')}
+              onChange={(e) => setModel(e.target.value)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -109,7 +121,11 @@ function LLMNodeEditor({ nodeId, currentLabel, currentConfig, onSave, onClose }:
                 fontSize: '14px',
               }}
             >
-              <option value="openai/gpt-5">OpenAI GPT-5</option>
+              {MODEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} {option.description && `- ${option.description}`}
+                </option>
+              ))}
             </select>
           </div>
 

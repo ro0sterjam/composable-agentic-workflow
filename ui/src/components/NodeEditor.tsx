@@ -15,12 +15,12 @@ interface NodeEditorProps {
   currentLabel?: string;
   currentValue?: string | number | boolean | null | undefined;
   currentLLMConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     system?: string;
     prompt?: string;
   };
   currentStructuredLLMConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     schema?: string;
     prompt?: string;
   };
@@ -72,12 +72,12 @@ export interface NodeConfig {
   label?: string;
   value?: string | number | boolean | null | undefined;
   llmConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     system?: string;
     prompt?: string;
   };
   structuredLLMConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     schema?: string;
     prompt?: string;
   };

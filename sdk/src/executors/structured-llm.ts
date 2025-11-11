@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { generateObject, jsonSchema } from 'ai';
 
+import type { OpenAIModel } from '../nodes/impl/models';
 import type { JSONSchema } from '../nodes/impl/structured-llm';
 
 import { interpolateString } from './interpolation';
@@ -10,7 +11,7 @@ import type { TransformerExecutor, DAGContext } from './registry';
  * Internal config type that the executor receives (with JSON Schema)
  */
 interface StructuredLLMTransformerNodeExecutorConfig {
-  model: 'openai/gpt-5';
+  model: string; // Model string (e.g., 'openai/gpt-4o')
   schema: JSONSchema;
   prompt?: string;
 }
@@ -31,15 +32,17 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
       ? interpolateString(config.prompt, input, dagContext)
       : String(input);
 
-    // Call OpenAI API using generateObject
-    if (config.model === 'openai/gpt-5') {
+    // Check if it's an OpenAI model
+    if (config.model.startsWith('openai/')) {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) {
         throw new Error('OPENAI_API_KEY environment variable is not set');
       }
 
       // Extract model name (remove provider prefix)
-      const modelName = config.model.split('/')[1];
+      const modelName = config.model.split('/')[1] as OpenAIModel extends `openai/${infer M}`
+        ? M
+        : string;
 
       // Check if schema is an object type - OpenAI requires object type for response_format
       const schema = config.schema as Record<string, unknown>;
@@ -79,6 +82,8 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
       return result.object as OutputType;
     }
 
-    throw new Error(`Unsupported model: ${config.model}`);
+    throw new Error(
+      `Unsupported model: ${config.model}. Only OpenAI models are currently supported.`
+    );
   }
 }

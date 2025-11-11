@@ -27,6 +27,7 @@ export interface DAGExecutionResult {
  */
 export interface DAGExecutionOptions {
   executorRegistry?: ExecutorRegistry;
+  onNodeStart?: (nodeId: string) => void;
   onNodeComplete?: (nodeId: string, result: NodeExecutionResult) => void;
 }
 
@@ -37,7 +38,7 @@ export async function executeDAG(
   dag: SerializedDAG,
   options: DAGExecutionOptions = {}
 ): Promise<DAGExecutionResult> {
-  const { executorRegistry = defaultExecutorRegistry, onNodeComplete } = options;
+  const { executorRegistry = defaultExecutorRegistry, onNodeStart, onNodeComplete } = options;
 
   // Build adjacency list for topological sort
   const nodes = new Map<string, SerializedNode>();
@@ -90,6 +91,11 @@ export async function executeDAG(
     const node = nodes.get(nodeId)!;
 
     try {
+      // Notify start callback
+      if (onNodeStart) {
+        onNodeStart(nodeId);
+      }
+
       // Get input for this node (output from previous nodes)
       const input = getNodeInput(nodeId, dag.edges, nodeOutputs);
 

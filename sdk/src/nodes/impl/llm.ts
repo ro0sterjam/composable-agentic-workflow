@@ -1,10 +1,12 @@
 import { TransformerNode } from '../types';
 
+import type { Model } from './models';
+
 /**
  * Config type for SimpleLLMTransformerNode
  */
 export interface SimpleLLMTransformerNodeConfig {
-  model: 'openai/gpt-5';
+  model: Model;
   system?: string;
   prompt?: string;
 }

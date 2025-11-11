@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 
 import type { SimpleLLMTransformerNodeConfig } from '../nodes/impl/llm';
+import type { OpenAIModel } from '../nodes/impl/models';
 
 import { interpolateString } from './interpolation';
 import type { TransformerExecutor, DAGContext } from './registry';
@@ -22,15 +23,17 @@ export class SimpleLLMExecutor<InputType = string, OutputType = string>
       ? interpolateString(config.prompt, input, dagContext)
       : String(input);
 
-    // Call OpenAI API using generateText
-    if (config.model === 'openai/gpt-5') {
+    // Check if it's an OpenAI model
+    if (config.model.startsWith('openai/')) {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) {
         throw new Error('OPENAI_API_KEY environment variable is not set');
       }
 
       // Extract model name (remove provider prefix)
-      const modelName = config.model.split('/')[1];
+      const modelName = config.model.split('/')[1] as OpenAIModel extends `openai/${infer M}`
+        ? M
+        : string;
 
       // Interpolate system prompt if provided
       const system = config.system

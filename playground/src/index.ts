@@ -85,7 +85,7 @@ async function main() {
     .pipe(new CacheTransformerNode('cacheQuery', { property: 'query' }))
     .pipe(
       new StructuredLLMTransformerNode('generateVariants', {
-        model: 'openai/gpt-5',
+        model: 'openai/gpt-4o-mini',
         prompt: 'Generate 5 variants of the following query: ${input}',
         schema: z.array(z.string()),
       })
@@ -99,7 +99,7 @@ async function main() {
       new MapTransformerNode(
         'mapSummary',
         new StructuredLLMTransformerNode('summary', {
-          model: 'openai/gpt-5',
+          model: 'openai/gpt-4o-mini',
           schema: z.string(),
           prompt:
             'From the original query: "${dagContext.cache.query}", answer the query based on the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t help answer the query, return "No answer found".',

@@ -3,6 +3,8 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { TransformerNode } from '../types';
 
+import type { Model } from './models';
+
 /**
  * JSON Schema type (simplified - matches what zod-to-json-schema produces)
  */
@@ -13,7 +15,7 @@ export type JSONSchema = Record<string, unknown>;
  * The schema is provided as a Zod schema and will be converted to JSON Schema internally
  */
 export interface StructuredLLMTransformerNodeConfig<OutputType> {
-  model: 'openai/gpt-5';
+  model: Model;
   schema: z.ZodType<OutputType>; // Zod schema that defines the output structure
   prompt?: string; // User prompt, where ${input} will be interpolated
 }

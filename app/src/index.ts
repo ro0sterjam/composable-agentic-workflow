@@ -160,6 +160,11 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
 
   try {
     const result = await executeDAG(serializedDAG, {
+      onNodeStart: (nodeId: string) => {
+        const node = serializedDAG.nodes.find((n) => n.id === nodeId);
+        const nodeLabel = node && 'label' in node && node.label ? node.label : nodeId;
+        sendLog('info', `Started: ${nodeLabel}`, nodeId);
+      },
       onNodeComplete: (nodeId: string, nodeResult: NodeExecutionResult) => {
         const node = serializedDAG.nodes.find((n) => n.id === nodeId);
         const nodeLabel = node && 'label' in node && node.label ? node.label : nodeId;

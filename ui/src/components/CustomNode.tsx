@@ -8,12 +8,12 @@ interface CustomNodeData {
   id: string;
   value?: string | number | boolean | null | undefined;
   llmConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     system?: string;
     prompt?: string;
   };
   structuredLLMConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     schema?: string; // JSON Schema as string
     prompt?: string;
   };
@@ -176,7 +176,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
             {data.llmConfig.model && (
               <div style={{ marginBottom: '4px' }}>
-                Model: {data.llmConfig.model}
+                Model: {data.llmConfig.model.split('/')[1] || data.llmConfig.model}
               </div>
             )}
             {data.llmConfig.prompt && (
@@ -195,7 +195,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           <div style={{ marginTop: '4px', fontSize: '11px', color: colors.text, opacity: 0.8, lineHeight: '1.6', display: 'flex', flexDirection: 'column' }}>
             {data.structuredLLMConfig.model && (
               <div style={{ marginBottom: '4px' }}>
-                Model: {data.structuredLLMConfig.model}
+                Model: {data.structuredLLMConfig.model.split('/')[1] || data.structuredLLMConfig.model}
               </div>
             )}
             {data.structuredLLMConfig.schema && (

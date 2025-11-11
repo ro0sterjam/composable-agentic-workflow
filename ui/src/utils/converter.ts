@@ -15,7 +15,7 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
       config.value = node.data.value ?? '';
     } else if (nodeType === 'simple_llm') {
       if (node.data.llmConfig) {
-        config.model = node.data.llmConfig.model || 'openai/gpt-5';
+        config.model = node.data.llmConfig.model || 'openai/gpt-4o-mini';
         if (node.data.llmConfig.system) {
           config.system = node.data.llmConfig.system;
         }
@@ -23,11 +23,11 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
           config.prompt = node.data.llmConfig.prompt;
         }
       } else {
-        config.model = 'openai/gpt-5';
+        config.model = 'openai/gpt-4o-mini';
       }
     } else if (nodeType === 'structured_llm') {
       if (node.data.structuredLLMConfig) {
-        config.model = node.data.structuredLLMConfig.model || 'openai/gpt-5';
+        config.model = node.data.structuredLLMConfig.model || 'openai/gpt-4o-mini';
         // Parse the schema string to JSON Schema object
         try {
           config.schema = JSON.parse(node.data.structuredLLMConfig.schema || '{}');
@@ -39,7 +39,7 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
           config.prompt = node.data.structuredLLMConfig.prompt;
         }
       } else {
-        config.model = 'openai/gpt-5';
+        config.model = 'openai/gpt-4o-mini';
         config.schema = {};
       }
     } else if (nodeType === 'map') {

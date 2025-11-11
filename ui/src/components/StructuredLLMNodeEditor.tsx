@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react';
 
+// Model options - matching SDK's MODEL_OPTIONS
+const MODEL_OPTIONS = [
+  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini', description: 'Fast and affordable' },
+  { value: 'openai/gpt-4o', label: 'GPT-4o', description: 'Fast and capable' },
+  { value: 'openai/gpt-4-turbo', label: 'GPT-4 Turbo', description: 'High performance' },
+  { value: 'openai/gpt-4', label: 'GPT-4', description: 'High quality' },
+  { value: 'openai/gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Fast and cost-effective' },
+  { value: 'openai/gpt-5', label: 'GPT-5', description: 'Latest model' },
+] as const;
+
 interface StructuredLLMNodeEditorProps {
   nodeId: string;
   currentLabel?: string;
   currentConfig?: {
-    model?: 'openai/gpt-5';
+    model?: string;
     schema?: string; // JSON Schema as string
     prompt?: string;
   };
   onSave: (
     label: string,
-    config: { model: 'openai/gpt-5'; schema: string; prompt?: string }
+    config: { model: string; schema: string; prompt?: string }
   ) => void;
   onClose: () => void;
 }
@@ -23,8 +33,8 @@ function StructuredLLMNodeEditor({
   onClose,
 }: StructuredLLMNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
-  const [model, setModel] = useState<'openai/gpt-5'>(
-    (currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5'
+  const [model, setModel] = useState<string>(
+    currentConfig?.model || 'openai/gpt-4o-mini'
   );
   const [schema, setSchema] = useState(
     currentConfig?.schema || JSON.stringify({ type: 'object', properties: {} }, null, 2)
@@ -34,7 +44,7 @@ function StructuredLLMNodeEditor({
 
   useEffect(() => {
     setLabel(currentLabel || '');
-    setModel((currentConfig?.model as 'openai/gpt-5') || 'openai/gpt-5');
+    setModel(currentConfig?.model || 'openai/gpt-4o-mini');
     setSchema(
       currentConfig?.schema || JSON.stringify({ type: 'object', properties: {} }, null, 2)
     );
@@ -135,7 +145,7 @@ function StructuredLLMNodeEditor({
             </label>
             <select
               value={model}
-              onChange={(e) => setModel(e.target.value as 'openai/gpt-5')}
+              onChange={(e) => setModel(e.target.value)}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -146,7 +156,11 @@ function StructuredLLMNodeEditor({
                 fontSize: '14px',
               }}
             >
-              <option value="openai/gpt-5">OpenAI GPT-5</option>
+              {MODEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} {option.description && `- ${option.description}`}
+                </option>
+              ))}
             </select>
           </div>
 

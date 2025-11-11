@@ -57,4 +57,7 @@ export type {
   CacheTransformerNodeConfig,
   ExtractTransformerNodeConfig,
   FilterTransformerNodeConfig,
+  Model,
+  OpenAIModel,
+  MODEL_OPTIONS,
 } from './nodes';
