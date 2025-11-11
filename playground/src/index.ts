@@ -93,17 +93,16 @@ async function main() {
     .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
     .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
     .pipe(
-      new MapTransformerNode('mapText', new ExtractTransformerNode('extract', { property: 'text' }))
-    )
-    .pipe(
       new MapTransformerNode(
-        'mapSummary',
-        new StructuredLLMTransformerNode('summary', {
-          model: 'openai/gpt-4o-mini',
-          schema: z.string(),
-          prompt:
-            'From the original query: "${dagContext.cache.query}", answer the query based on the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t help answer the query, return "No answer found".',
-        })
+        'mapText',
+        new ExtractTransformerNode('extract', { property: 'text' }).pipe(
+          new StructuredLLMTransformerNode('summary', {
+            model: 'openai/gpt-4o-mini',
+            schema: z.string(),
+            prompt:
+              'From the original query: "${dagContext.cache.query}", answer the query based on the following text: \n\n```\n${input}\n```\n\n. If the text doesn\'t help answer the query, return "No answer found".',
+          })
+        )
       )
     )
     .pipe(new FilterTransformerNode('filter', { expression: 'input !== "No answer found"' }))

@@ -24,7 +24,7 @@ export class MapTransformerNode<InputType, OutputType> extends TransformerNode<
   /**
    * Creates a new MapTransformerNode
    * @param id - Unique identifier for the node
-   * @param transformer - The transformer node to apply to each element (cannot be a SequentialTransformerNode)
+   * @param transformer - The transformer node to apply to each element. If a SequentialTransformerNode is provided, the transformerId will be extracted from the first node.
    * @param config - Optional configuration with parallel flag (defaults to true). transformerId is added automatically.
    * @param label - Optional label for the node
    */
@@ -34,11 +34,20 @@ export class MapTransformerNode<InputType, OutputType> extends TransformerNode<
     config?: Omit<MapTransformerNodeConfig, 'transformerId'>,
     label?: string
   ) {
-    // Reject SequentialTransformerNode - map can only execute a single transformer
+    // If it's a SequentialTransformerNode, extract the transformerId from the first node
+    // Otherwise, use the transformer's ID directly
+    let transformerId: string;
     if (transformer.type === 'sequential') {
-      throw new Error(
-        'MapTransformerNode cannot accept a SequentialTransformerNode. Use a single transformer node instead.'
-      );
+      const seqNode = transformer as any;
+      if (seqNode.first) {
+        transformerId = seqNode.first.id;
+      } else {
+        throw new Error(
+          'SequentialTransformerNode must have a first node to extract transformerId from.'
+        );
+      }
+    } else {
+      transformerId = transformer.id;
     }
 
     super(
@@ -46,7 +55,7 @@ export class MapTransformerNode<InputType, OutputType> extends TransformerNode<
       'map',
       {
         parallel: config?.parallel ?? true, // Default to true
-        transformerId: transformer.id,
+        transformerId,
       },
       label
     );

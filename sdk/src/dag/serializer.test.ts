@@ -312,18 +312,15 @@ describe('serializeStandAloneNode', () => {
     });
   });
 
-  it('should reject a MapTransformerNode with a chained transformer (peek -> llm) at runtime', () => {
+  it('should accept a MapTransformerNode with a SequentialTransformerNode and extract transformerId from first node', () => {
     // Create a chained transformer: peek -> llm
     const peek = new PeekTransformerNode('peek1', { label: 'Debug' });
     const llm = new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-5' });
     const chainedTransformer = peek.pipe(llm);
 
-    // MapTransformerNode should reject SequentialTransformerNode at runtime
-    // Using type assertion to bypass compile-time check and test runtime validation
-    expect(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new MapTransformerNode('map1', chainedTransformer as any, { parallel: true });
-    }).toThrow('MapTransformerNode cannot accept a SequentialTransformerNode');
+    // MapTransformerNode should accept SequentialTransformerNode and extract transformerId from first node
+    const mapNode = new MapTransformerNode('map1', chainedTransformer as any, { parallel: true });
+    expect(mapNode.config?.transformerId).toBe('peek1'); // Should be the first node's ID, not the sequential node's ID
   });
 
   it('should serialize a FlatMapTransformerNode with nested transformer', () => {
@@ -385,16 +382,16 @@ describe('serializeStandAloneNode', () => {
     });
   });
 
-  it('should reject a FlatMapTransformerNode with a chained transformer at runtime', () => {
+  it('should accept a FlatMapTransformerNode with a SequentialTransformerNode and extract transformerId from first node', () => {
     // Create a chained transformer: peek -> llm
     const peek = new PeekTransformerNode('peek1', { label: 'Debug' });
     const llm = new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-5' });
     const chainedTransformer = peek.pipe(llm);
 
-    // FlatMapTransformerNode should reject SequentialTransformerNode at runtime
-    expect(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new FlatMapTransformerNode('flatmap1', chainedTransformer as any, { parallel: true });
-    }).toThrow('FlatMapTransformerNode cannot accept a SequentialTransformerNode');
+    // FlatMapTransformerNode should accept SequentialTransformerNode and extract transformerId from first node
+    const flatmapNode = new FlatMapTransformerNode('flatmap1', chainedTransformer as any, {
+      parallel: true,
+    });
+    expect(flatmapNode.config?.transformerId).toBe('peek1'); // Should be the first node's ID, not the sequential node's ID
   });
 });

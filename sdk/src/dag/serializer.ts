@@ -155,8 +155,10 @@ function extractNodesAndEdges(
     if (mapNode.transformer) {
       // Recursively extract the transformer node (so it's added to the nodes array)
       // This will flatten sequential nodes and extract all nested nodes
+      // If it's a SequentialTransformerNode, the entire chain will be extracted
       extractNodesAndEdges(mapNode.transformer, state);
-      // The transformerId is already in the config from the MapTransformerNode constructor
+      // The transformerId in the config points to the first node (for SequentialTransformerNode)
+      // or the transformer node itself (for regular transformers)
     }
   }
 
@@ -166,8 +168,10 @@ function extractNodesAndEdges(
     if (flatmapNode.transformer) {
       // Recursively extract the transformer node (so it's added to the nodes array)
       // This will flatten sequential nodes and extract all nested nodes
+      // If it's a SequentialTransformerNode, the entire chain will be extracted
       extractNodesAndEdges(flatmapNode.transformer, state);
-      // The transformerId is already in the config from the FlatMapTransformerNode constructor
+      // The transformerId in the config points to the first node (for SequentialTransformerNode)
+      // or the transformer node itself (for regular transformers)
     }
   }
 
