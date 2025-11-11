@@ -26,6 +26,7 @@ export enum NodeType {
   LLM = 'llm',
   LITERAL = 'literal',
   CONSOLE = 'console',
+  EXA_SEARCH = 'exa_search',
 }
 
 /**
@@ -60,6 +61,7 @@ import type {
   LLMNode,
   LiteralNode,
   ConsoleSinkNode,
+  ExaSearchNode,
 } from './nodes';
 
 export type {
@@ -70,9 +72,10 @@ export type {
   LLMNode,
   LiteralNode,
   ConsoleSinkNode,
+  ExaSearchNode,
 };
 
-export type Node = ConditionalNode | LoopNode | FanOutNode | AggregatorNode | LLMNode | LiteralNode | ConsoleSinkNode;
+export type Node = ConditionalNode | LoopNode | FanOutNode | AggregatorNode | LLMNode | LiteralNode | ConsoleSinkNode | ExaSearchNode;
 
 /**
  * DAG structure (serializable version)
@@ -111,6 +114,20 @@ export interface SerializableNode extends Omit<BaseNode, 'metadata'> {
   structuredOutput?: {
     schema: Record<string, unknown>;
     mode?: 'json' | 'json_schema' | 'tool';
+  };
+  // Exa Search node fields
+  config?: {
+    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?: string;
+    numResults?: number;
+    text?: boolean;
+    contents?: boolean | { numChars?: number };
+    highlights?: boolean;
+    summary?: boolean;
   };
 }
 

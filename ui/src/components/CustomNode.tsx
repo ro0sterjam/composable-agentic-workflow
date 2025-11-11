@@ -12,6 +12,19 @@ interface CustomNodeData {
     schema: Record<string, unknown>;
     mode?: 'json' | 'json_schema' | 'tool';
   };
+  exaConfig?: {
+    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?: string;
+    numResults?: number;
+    text?: boolean;
+    contents?: boolean | { numChars?: number };
+    highlights?: boolean;
+    summary?: boolean;
+  };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';
 }
@@ -24,6 +37,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
   [NodeType.LITERAL]: { bg: '#f3f4f6', border: '#6b7280', text: '#374151' },
   [NodeType.CONSOLE]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
   [NodeType.LLM]: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b' },
+  [NodeType.EXA_SEARCH]: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' },
 };
 
 const nodeTypeIcons: Record<NodeType, string> = {
@@ -34,6 +48,7 @@ const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.LITERAL]: '📦',
   [NodeType.CONSOLE]: '📥',
   [NodeType.LLM]: '🤖',
+  [NodeType.EXA_SEARCH]: '🔍',
 };
 
 function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
@@ -131,16 +146,28 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
             </span>
           </div>
         )}
-        {nodeType === NodeType.LLM && (
-          <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
-            <span className="port-label">Model: {data.model || 'openai/gpt-4o'}</span>
-            {data.structuredOutput && (
-              <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
-                Structured: {data.structuredOutput.mode || 'json'}
-              </span>
-            )}
-          </div>
-        )}
+      {nodeType === NodeType.LLM && (
+        <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+          <span className="port-label">Model: {data.model || 'openai/gpt-4o'}</span>
+          {data.structuredOutput && (
+            <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
+              Structured: {data.structuredOutput.mode || 'json'}
+            </span>
+          )}
+        </div>
+      )}
+      {nodeType === NodeType.EXA_SEARCH && (
+        <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+          <span className="port-label">
+            Type: {data.exaConfig?.searchType || 'auto'} | Results: {data.exaConfig?.numResults || 10}
+          </span>
+          {data.exaConfig?.category && (
+            <span className="port-label" style={{ display: 'block', marginTop: '2px' }}>
+              Category: {data.exaConfig.category}
+            </span>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );

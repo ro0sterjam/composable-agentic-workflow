@@ -13,6 +13,7 @@ const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦', description: 'Literal value (no input)' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥', description: 'Logs input to console' },
   { type: NodeType.LLM, label: 'LLM', icon: '🤖', description: 'LLM execution' },
+  { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍', description: 'Web search via Exa' },
 ];
 
 function Sidebar({ onNodeAdd }: SidebarProps) {

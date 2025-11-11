@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NodeType } from '../../../sdk/src/types';
 import DataNodeEditor from './DataNodeEditor';
 import LLMNodeEditor from './LLMNodeEditor';
+import ExaSearchNodeEditor from './ExaSearchNodeEditor';
 
 interface NodeEditorProps {
   nodeId: string;
@@ -12,6 +13,19 @@ interface NodeEditorProps {
   currentStructuredOutput?: {
     schema: Record<string, unknown>;
     mode?: 'json' | 'json_schema' | 'tool';
+  };
+  currentExaConfig?: {
+    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?: string;
+    numResults?: number;
+    text?: boolean;
+    contents?: boolean | { numChars?: number };
+    highlights?: boolean;
+    summary?: boolean;
   };
   onSave: (config: NodeConfig) => void;
   onClose: () => void;
@@ -25,6 +39,19 @@ export interface NodeConfig {
     schema: Record<string, unknown>;
     mode?: 'json' | 'json_schema' | 'tool';
   };
+  exaConfig?: {
+    searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    includeText?: string[];
+    excludeText?: string[];
+    category?: string;
+    numResults?: number;
+    text?: boolean;
+    contents?: boolean | { numChars?: number };
+    highlights?: boolean;
+    summary?: boolean;
+  };
 }
 
 function NodeEditor({
@@ -34,6 +61,7 @@ function NodeEditor({
   currentValue,
   currentModel,
   currentStructuredOutput,
+  currentExaConfig,
   onSave,
   onClose,
 }: NodeEditorProps) {
@@ -85,6 +113,21 @@ function NodeEditor({
         currentStructuredOutput={currentStructuredOutput}
         onSave={(id, model, structuredOutput, label) => {
           onSave({ label: label || undefined, model, structuredOutput });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (nodeType === NodeType.EXA_SEARCH) {
+    return (
+      <ExaSearchNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentConfig={currentExaConfig}
+        onSave={(id, config, label) => {
+          onSave({ label: label || undefined, exaConfig: config });
           onClose();
         }}
         onClose={onClose}

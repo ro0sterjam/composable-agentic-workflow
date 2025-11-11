@@ -14,6 +14,7 @@ export interface DAGConfig {
    */
   secrets?: {
     openaiApiKey?: string;
+    exaApiKey?: string;
     [key: string]: string | undefined;
   };
 
@@ -72,6 +73,7 @@ export function createConfigFromEnv(overrides?: Partial<DAGConfig>): DAGConfig {
     ...DEFAULT_DAG_CONFIG,
     secrets: {
       openaiApiKey: overrides?.secrets?.openaiApiKey || getEnvVar('OPENAI_API_KEY'),
+      exaApiKey: overrides?.secrets?.exaApiKey || getEnvVar('EXA_API_KEY'),
       ...overrides?.secrets,
     },
     runtime: {

@@ -8,6 +8,7 @@ import {
   LLMNode,
   LiteralNode,
   ConsoleSinkNode,
+  ExaSearchNode,
   ConditionalNodeBuilder,
   LoopNodeBuilder,
   FanOutNodeBuilder,
@@ -15,6 +16,7 @@ import {
   LiteralNodeBuilder,
   LLMNodeBuilder,
   ConsoleSinkBuilder,
+  ExaSearchNodeBuilder,
   NodeBuilder,
 } from './nodes';
 
@@ -151,13 +153,14 @@ export class FluentDAGBuilder {
     };
     this.currentNode = node;
     this.builder.addNode(node);
+    // Builder will set up the execute function
     return new ConsoleSinkBuilder(this, node);
   }
 
   /**
    * Create an LLM node (sends input to LLM and outputs response)
    */
-  llm(id: string, execute: (input: unknown) => Promise<unknown> | unknown): LLMNodeBuilder {
+  llm(id: string): LLMNodeBuilder {
     const node: LLMNode = {
       id,
       type: NodeType.LLM,
@@ -165,11 +168,39 @@ export class FluentDAGBuilder {
       inputPorts: [{ id: 'input', label: 'Input' }],
       outputPorts: [{ id: 'output', label: 'Output' }],
       model: 'openai/gpt-4o', // Using gpt-4o for faster responses (gpt-5 is a reasoning model that's slower)
-      execute,
+      execute: async () => {
+        throw new Error('Execute function not initialized. This should be set by LLMNodeBuilder.');
+      },
     };
     this.currentNode = node;
     this.builder.addNode(node);
+    // Builder will set up the execute function
     return new LLMNodeBuilder(this, node);
+  }
+
+  /**
+   * Create an Exa Search node (performs web search using Exa API)
+   */
+  exaSearch(id: string): ExaSearchNodeBuilder {
+    const node: ExaSearchNode = {
+      id,
+      type: NodeType.EXA_SEARCH,
+      label: id,
+      inputPorts: [{ id: 'input', label: 'Input' }],
+      outputPorts: [{ id: 'output', label: 'Output' }],
+      config: {
+        searchType: 'auto',
+        text: true,
+        numResults: 10,
+      },
+      execute: async () => {
+        throw new Error('Execute function not initialized. This should be set by ExaSearchNodeBuilder.');
+      },
+    };
+    this.currentNode = node;
+    this.builder.addNode(node);
+    // Builder will set up the execute function
+    return new ExaSearchNodeBuilder(this, node);
   }
 
   /**

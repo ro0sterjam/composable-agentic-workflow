@@ -23,10 +23,7 @@ async function main() {
     .to('llm', 'input');
   
   builder
-    .llm('llm', async (input) => {
-      // The DAGExecutor will call executeLLMNode directly, so this is just a placeholder
-      return input;
-    })
+    .llm('llm')
     .model('openai/gpt-4o') // Using gpt-4o for faster responses
     .label('LLM Node')
     .to('console', 'input');

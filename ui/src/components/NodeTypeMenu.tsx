@@ -15,6 +15,7 @@ const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦' },
   { type: NodeType.CONSOLE, label: 'Console', icon: '📥' },
   { type: NodeType.LLM, label: 'LLM', icon: '🤖' },
+  { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍' },
 ];
 
 function NodeTypeMenu({ position, onSelect, onClose }: NodeTypeMenuProps) {

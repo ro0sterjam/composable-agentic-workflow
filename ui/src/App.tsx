@@ -31,7 +31,6 @@ import NodeTypeMenu from './components/NodeTypeMenu';
 import NodeEditor, { NodeConfig } from './components/NodeEditor';
 import LogPanel, { type LogEntry } from './components/LogPanel';
 import ConfigPanel from './components/ConfigPanel';
-import { executeLLMNode } from '../../sdk/src/llm-executor';
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -190,13 +189,7 @@ function App() {
                 break;
               case NodeType.LLM:
                 newDagBuilder
-                  .llm(node.id, async (input) => {
-                    const dagNode = newDagBuilder.getBuilder().getNode(node.id);
-                    if (dagNode && dagNode.type === NodeType.LLM) {
-                      return executeLLMNode(input, dagNode.model, dagNode.structuredOutput);
-                    }
-                    return input;
-                  })
+                  .llm(node.id)
                   .label(label);
                 const restoredLLMNode = newDagBuilder.getBuilder().getNode(node.id);
                 if (restoredLLMNode && restoredLLMNode.type === NodeType.LLM) {
@@ -284,13 +277,7 @@ function App() {
               break;
             case NodeType.LLM:
               newDagBuilder
-                .llm(node.id, async (input) => {
-                  const dagNode = newDagBuilder.getBuilder().getNode(node.id);
-                  if (dagNode && dagNode.type === NodeType.LLM) {
-                    return executeLLMNode(input, dagNode.model, dagNode.structuredOutput);
-                  }
-                  return input;
-                })
+                .llm(node.id)
                 .label(label);
               const restoredLLMNode = newDagBuilder.getBuilder().getNode(node.id);
               if (restoredLLMNode && restoredLLMNode.type === NodeType.LLM) {
@@ -483,13 +470,12 @@ function App() {
         break;
       case NodeType.LLM:
         dagBuilder
-          .llm(id, async (input) => {
-            const dagNode = dagBuilder.getBuilder().getNode(id);
-            if (dagNode && dagNode.type === NodeType.LLM) {
-              return executeLLMNode(input, dagNode.model, dagNode.structuredOutput);
-            }
-            return input;
-          })
+          .llm(id)
+          .label(label);
+        break;
+      case NodeType.EXA_SEARCH:
+        dagBuilder
+          .exaSearch(id)
           .label(label);
         break;
       default:
@@ -519,6 +505,19 @@ function App() {
     let nodeValue: string | number | boolean | null | undefined = undefined;
     let nodeModel: string | undefined = undefined;
     let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
+    let nodeExaConfig: {
+      searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+      includeDomains?: string[];
+      excludeDomains?: string[];
+      includeText?: string[];
+      excludeText?: string[];
+      category?: string;
+      numResults?: number;
+      text?: boolean;
+      contents?: boolean | { numChars?: number };
+      highlights?: boolean;
+      summary?: boolean;
+    } | undefined = undefined;
     
     const dagNode = dagBuilder.getBuilder().getNode(nodeId);
     if (type === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
@@ -526,6 +525,8 @@ function App() {
     } else if (type === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
       nodeModel = dagNode.model;
       nodeStructuredOutput = dagNode.structuredOutput;
+    } else if (type === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
+      nodeExaConfig = dagNode.config;
     }
 
       const newNode: Node = {
@@ -538,6 +539,7 @@ function App() {
           id: nodeId,
           ...(type === NodeType.LITERAL && { value: nodeValue }),
           ...(type === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
+          ...(type === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
         },
       };
 
@@ -562,13 +564,32 @@ function App() {
     const nodeId = getNodeId();
     createDAGNode(nodeType, nodeId);
 
-    // Get value for literal nodes
+    // Get value for literal nodes, model for LLM nodes, config for Exa Search nodes
     let nodeValue: string | number | boolean | null | undefined = undefined;
-    if (nodeType === NodeType.LITERAL) {
-      const dagNode = dagBuilder.getBuilder().getNode(nodeId);
-      if (dagNode && dagNode.type === NodeType.LITERAL) {
-        nodeValue = dagNode.value;
-      }
+    let nodeModel: string | undefined = undefined;
+    let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
+    let nodeExaConfig: {
+      searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+      includeDomains?: string[];
+      excludeDomains?: string[];
+      includeText?: string[];
+      excludeText?: string[];
+      category?: string;
+      numResults?: number;
+      text?: boolean;
+      contents?: boolean | { numChars?: number };
+      highlights?: boolean;
+      summary?: boolean;
+    } | undefined = undefined;
+    
+    const dagNode = dagBuilder.getBuilder().getNode(nodeId);
+    if (nodeType === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
+      nodeValue = dagNode.value;
+    } else if (nodeType === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
+      nodeModel = dagNode.model;
+      nodeStructuredOutput = dagNode.structuredOutput;
+    } else if (nodeType === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
+      nodeExaConfig = dagNode.config;
     }
 
     const newNode: Node = {
@@ -580,6 +601,8 @@ function App() {
         nodeType,
         id: nodeId,
         ...(nodeType === NodeType.LITERAL && { value: nodeValue }),
+        ...(nodeType === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
+        ...(nodeType === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
       },
     };
 
@@ -650,13 +673,7 @@ function App() {
           break;
         case NodeType.LLM:
           freshBuilder
-            .llm(node.id, async (input) => {
-              const dagNode = freshBuilder.getBuilder().getNode(node.id);
-              if (dagNode && dagNode.type === NodeType.LLM) {
-                return executeLLMNode(input, dagNode.model, dagNode.structuredOutput);
-              }
-              return input;
-            })
+            .llm(node.id)
             .label(label);
           const llmNode = freshBuilder.getBuilder().getNode(node.id);
           if (llmNode && llmNode.type === NodeType.LLM) {
@@ -670,6 +687,17 @@ function App() {
           break;
         case NodeType.CONSOLE:
           freshBuilder.consoleSink(node.id).label(label);
+          break;
+        case NodeType.EXA_SEARCH:
+          freshBuilder
+            .exaSearch(node.id)
+            .label(label);
+          const exaNode = freshBuilder.getBuilder().getNode(node.id);
+          if (exaNode && exaNode.type === NodeType.EXA_SEARCH) {
+            if (node.data.exaConfig) {
+              exaNode.config = { ...exaNode.config, ...node.data.exaConfig };
+            }
+          }
           break;
         case NodeType.CONDITIONAL:
           freshBuilder.conditional(node.id, async () => true).label(label);
@@ -819,10 +847,23 @@ function App() {
       const nodeId = getNodeId();
       createDAGNode(nodeType, nodeId);
 
-      // Get value for data nodes and model for LLM nodes
+      // Get value for data nodes, model for LLM nodes, config for Exa Search nodes
       let nodeValue: string | number | boolean | null | undefined = undefined;
       let nodeModel: string | undefined = undefined;
       let nodeStructuredOutput: { schema: Record<string, unknown>; mode?: 'json' | 'json_schema' | 'tool' } | undefined = undefined;
+      let nodeExaConfig: {
+        searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+        includeDomains?: string[];
+        excludeDomains?: string[];
+        includeText?: string[];
+        excludeText?: string[];
+        category?: string;
+        numResults?: number;
+        text?: boolean;
+        contents?: boolean | { numChars?: number };
+        highlights?: boolean;
+        summary?: boolean;
+      } | undefined = undefined;
       
       const dagNode = dagBuilder.getBuilder().getNode(nodeId);
       if (nodeType === NodeType.LITERAL && dagNode && dagNode.type === NodeType.LITERAL) {
@@ -830,6 +871,8 @@ function App() {
       } else if (nodeType === NodeType.LLM && dagNode && dagNode.type === NodeType.LLM) {
         nodeModel = dagNode.model;
         nodeStructuredOutput = dagNode.structuredOutput;
+      } else if (nodeType === NodeType.EXA_SEARCH && dagNode && dagNode.type === NodeType.EXA_SEARCH) {
+        nodeExaConfig = dagNode.config;
       }
 
       const newNode: Node = {
@@ -842,6 +885,7 @@ function App() {
           id: nodeId,
           ...(nodeType === NodeType.LITERAL && { value: nodeValue }),
           ...(nodeType === NodeType.LLM && { model: nodeModel, structuredOutput: nodeStructuredOutput }),
+          ...(nodeType === NodeType.EXA_SEARCH && { exaConfig: nodeExaConfig }),
         },
       };
 
@@ -882,6 +926,7 @@ function App() {
                   ...(config.value !== undefined && { value: config.value }),
                   ...(config.model !== undefined && { model: config.model }),
                   ...(config.structuredOutput !== undefined && { structuredOutput: config.structuredOutput }),
+                  ...(config.exaConfig !== undefined && { exaConfig: config.exaConfig }),
                 },
               }
             : node
@@ -903,6 +948,11 @@ function App() {
           }
           if (config.structuredOutput !== undefined) {
             dagNode.structuredOutput = config.structuredOutput;
+          }
+        }
+        if (dagNode.type === NodeType.EXA_SEARCH) {
+          if (config.exaConfig !== undefined) {
+            dagNode.config = { ...dagNode.config, ...config.exaConfig };
           }
         }
       }
@@ -969,13 +1019,7 @@ function App() {
                   break;
                 case NodeType.LLM:
                   dagBuilder
-                    .llm(node.id, async (input) => {
-                      const restoredNode = dagBuilder.getBuilder().getNode(node.id);
-                      if (restoredNode && restoredNode.type === NodeType.LLM) {
-                        return executeLLMNode(input, restoredNode.model, restoredNode.structuredOutput);
-                      }
-                      return input;
-                    })
+                    .llm(node.id)
                     .label(label);
                   // Restore model and structured output
                   const restoredLLMNode = dagBuilder.getBuilder().getNode(node.id);
@@ -988,9 +1032,23 @@ function App() {
                     }
                   }
                   break;
-              }
+                case NodeType.EXA_SEARCH:
+                  dagBuilder
+                    .exaSearch(node.id)
+                    .label(label);
+                  const restoredExaNode = dagBuilder.getBuilder().getNode(node.id);
+                  if (restoredExaNode && restoredExaNode.type === NodeType.EXA_SEARCH) {
+                    if (node.data.exaConfig) {
+                      restoredExaNode.config = { ...restoredExaNode.config, ...node.data.exaConfig };
+                    }
+                  }
+                  break;
+                case NodeType.CONSOLE:
+                  dagBuilder.consoleSink(node.id).label(label);
+                  break;
             }
-          });
+          }
+        });
 
           // Restore connections
           parsed.edges.forEach((edge: Edge) => {
@@ -1139,6 +1197,29 @@ function App() {
               }
             }
 
+            // For Exa Search nodes, get config from DAG node first, then visual node
+            let currentExaConfig: {
+              searchType?: 'auto' | 'neural' | 'keyword' | 'fast';
+              includeDomains?: string[];
+              excludeDomains?: string[];
+              includeText?: string[];
+              excludeText?: string[];
+              category?: string;
+              numResults?: number;
+              text?: boolean;
+              contents?: boolean | { numChars?: number };
+              highlights?: boolean;
+              summary?: boolean;
+            } | undefined = undefined;
+
+            if (nodeType === NodeType.EXA_SEARCH) {
+              if (dagNode && dagNode.type === NodeType.EXA_SEARCH) {
+                currentExaConfig = dagNode.config;
+              } else {
+                currentExaConfig = node.data.exaConfig;
+              }
+            }
+
             return (
               <NodeEditor
                 nodeId={editingNodeId}
@@ -1147,6 +1228,7 @@ function App() {
                 currentValue={currentValue}
                 currentModel={currentModel}
                 currentStructuredOutput={currentStructuredOutput}
+                currentExaConfig={currentExaConfig}
                 onSave={(config) => onNodeSave(editingNodeId, config)}
                 onClose={() => setEditingNodeId(null)}
               />

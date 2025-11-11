@@ -15,9 +15,12 @@ export interface ConsoleSinkNode extends BaseNode {
  * Builder for console sink nodes
  */
 export class ConsoleSinkBuilder extends NodeBuilder<ConsoleSinkNode> {
-  execute(fn: (input: unknown) => Promise<void> | void): this {
-    this.node.execute = fn;
-    return this;
+  constructor(dag: import('../fluent-builder').FluentDAGBuilder, node: ConsoleSinkNode) {
+    super(dag, node);
+    // Define execute function that logs to console
+    node.execute = (input: unknown) => {
+      console.log('ConsoleSink:', input);
+    };
   }
 
   inputPorts(ports: Port[]): this {

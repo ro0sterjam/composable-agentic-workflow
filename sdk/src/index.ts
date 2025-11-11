@@ -10,6 +10,7 @@ export * from './types';
 export * from './nodes';
 export { serializeDAG, deserializeDAG } from './serialization';
 export { executeLLMNode } from './llm-executor';
+export { executeExaSearchNode } from './exa-executor';
 export { DAGExecutor, type ExecutionState, type ExecutionResult } from './dag-executor';
 export { 
   createConfigFromEnv, 

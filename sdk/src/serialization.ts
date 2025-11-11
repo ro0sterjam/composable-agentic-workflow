@@ -1,5 +1,8 @@
 import { DAG, DAGData, Node, NodeType } from './types';
 import { DAGBuilder } from './dag-builder';
+import { executeLLMNode } from './llm-executor';
+import { executeExaSearchNode } from './exa-executor';
+import type { DAGConfig } from './dag-config';
 
 /**
  * Serialize a DAG to JSON (without functions)
@@ -56,6 +59,12 @@ export function serializeDAG(dag: DAG): DAGData {
         serializable.inputPorts = node.inputPorts;
         serializable.executeRef = node.metadata?.executeRef;
         break;
+      case NodeType.EXA_SEARCH:
+        serializable.inputPorts = node.inputPorts;
+        serializable.outputPorts = node.outputPorts;
+        serializable.config = node.config;
+        serializable.executeRef = node.metadata?.executeRef;
+        break;
     }
 
     nodes[id] = serializable;
@@ -104,8 +113,10 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
           outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
           model: serialized.model || 'openai/gpt-4o',
           structuredOutput: serialized.structuredOutput,
-          // Execute function will be handled by the executor
-          execute: async () => { throw new Error('LLM execution handled by executor'); },
+          // Execute function calls executeLLMNode with model and structuredOutput
+          execute: async (input: unknown, dagConfig?: DAGConfig) => {
+            return executeLLMNode(input, node.model, node.structuredOutput, dagConfig);
+          },
           metadata: serialized.metadata || {},
         };
         builder.addNode(node);
@@ -118,9 +129,32 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
           type: NodeType.CONSOLE,
           label: serialized.label || serialized.id,
           inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          // Execute function will be handled by the executor
+          // Execute function is defined in ConsoleSinkBuilder constructor
           execute: (input: unknown) => {
             console.log('ConsoleSink:', input);
+          },
+          metadata: serialized.metadata || {},
+        };
+        builder.addNode(node);
+        // The execute function is already set correctly above
+        break;
+      }
+      
+      case NodeType.EXA_SEARCH: {
+        const node: any = {
+          id: serialized.id,
+          type: NodeType.EXA_SEARCH,
+          label: serialized.label || serialized.id,
+          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
+          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
+          config: serialized.config || {
+            searchType: 'auto',
+            text: true,
+            numResults: 10,
+          },
+          // Execute function calls executeExaSearchNode with config
+          execute: async (input: unknown, dagConfig?: DAGConfig) => {
+            return executeExaSearchNode(input, node.config, dagConfig);
           },
           metadata: serialized.metadata || {},
         };
@@ -160,7 +194,7 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
       }
       
       case NodeType.LOOP: {
-        const subDag = serialized.subDag ? deserializeDAG(serialized.subDag, functionRegistry) : undefined;
+        const subDag = serialized.subDag ? deserializeDAG(serialized.subDag as DAGData, functionRegistry) : undefined;
         const node: any = {
           id: serialized.id,
           type: NodeType.LOOP,
@@ -184,7 +218,7 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
       case NodeType.FAN_OUT: {
         const outputBranches = (serialized.outputBranches || []).map((branch: any) => ({
           port: branch.port,
-          subDag: branch.subDag ? deserializeDAG(branch.subDag, functionRegistry) : undefined,
+          subDag: branch.subDag ? deserializeDAG(branch.subDag as DAGData, functionRegistry) : undefined,
         }));
         const node: any = {
           id: serialized.id,

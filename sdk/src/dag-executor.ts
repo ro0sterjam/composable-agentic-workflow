@@ -1,6 +1,5 @@
 import { DAG, Node, NodeId, Connection, NodeType } from './types';
-import { executeLLMNode } from './llm-executor';
-import type { LiteralNode, LLMNode, ConditionalNode, ConsoleSinkNode, AggregatorNode } from './nodes';
+import type { LiteralNode, LLMNode, ConditionalNode, ConsoleSinkNode, AggregatorNode, ExaSearchNode } from './nodes';
 import type { DAGConfig } from './dag-config';
 
 export type ExecutionState = 'idle' | 'running' | 'completed' | 'failed';
@@ -217,12 +216,16 @@ export class DAGExecutor {
         case NodeType.LLM: {
           const llmNode = node as LLMNode;
           const input = this.getNodeInput(nodeId, 'input');
-          output = await executeLLMNode(
-            input, 
-            llmNode.model, 
-            llmNode.structuredOutput,
-            this.config
-          );
+          // Use the node's execute function, which calls executeLLMNode internally
+          output = await llmNode.execute(input, this.config);
+          break;
+        }
+
+        case NodeType.EXA_SEARCH: {
+          const exaNode = node as ExaSearchNode;
+          const input = this.getNodeInput(nodeId, 'input');
+          // Use the node's execute function, which calls executeExaSearchNode internally
+          output = await exaNode.execute(input, this.config);
           break;
         }
 
