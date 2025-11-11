@@ -1,3 +1,4 @@
+import { executeDAGFromNode } from '../dag/executor';
 import type { FlatMapTransformerNodeConfig } from '../nodes/impl/flatmap';
 
 import type { TransformerExecutor, DAGContext } from './registry';
@@ -30,46 +31,95 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
       throw new Error(`Transformer node with id "${transformerId}" not found in DAG`);
     }
 
-    // Get the executor for the transformer node type
-    const transformerExecutor = executorRegistry.getTransformer(transformerNode.type);
-    if (!transformerExecutor) {
-      throw new Error(
-        `No executor found for transformer node type: ${transformerNode.type}. Make sure an executor is registered for this node type.`
-      );
-    }
+    // Helper function to execute the transformer subgraph for a single item
+    const executeTransformerSubgraph = async (item: InputType): Promise<OutputType[]> => {
+      const result = await executeDAGFromNode(dag, transformerId, {
+        executorRegistry,
+        input: item,
+      });
 
-    // Execute the single transformer for each input item and flatten the results
-    if (parallel) {
-      // Run all transformations in parallel
-      const promises = input.map((item) =>
-        Promise.resolve(transformerExecutor.execute(item, transformerNode.config || {}, dagContext))
-      );
-      const results = await Promise.all(promises);
-      // Validate that all results are arrays
-      for (const result of results) {
-        if (!Array.isArray(result)) {
-          throw new Error(
-            `FlatMap transformer must output an array, but got ${typeof result}. Transformer node type: ${transformerNode.type}`
-          );
+      if (!result.success) {
+        // Find the first error
+        for (const [nodeId, nodeResult] of result.results.entries()) {
+          if (nodeResult.error) {
+            throw new Error(
+              `Error executing transformer subgraph for flatmap: ${nodeResult.error.message} (node: ${nodeId})`
+            );
+          }
+        }
+        throw new Error('Error executing transformer subgraph for flatmap: unknown error');
+      }
+
+      // Extract output from the transformer subgraph
+      // Find nodes with no outgoing edges in the executed subgraph (terminal nodes in the subgraph)
+      const executedNodeIds = new Set(result.results.keys());
+      const terminalNodes = Array.from(executedNodeIds).filter((nodeId) => {
+        // Check if this node has any outgoing edges to other executed nodes
+        return !dag.edges.some(
+          (edge) => edge.from === nodeId && executedNodeIds.has(edge.to)
+        );
+      });
+
+      // Filter to only terminal nodes that have defined output (skip terminal executors like Console)
+      const terminalNodesWithOutput = terminalNodes.filter((nodeId) => {
+        const nodeResult = result.results.get(nodeId);
+        return nodeResult?.output !== undefined;
+      });
+
+      // Prefer the transformer node's output if it exists and is defined
+      let output: unknown;
+      const transformerResult = result.results.get(transformerId);
+      if (transformerResult?.output !== undefined) {
+        // If transformer node is a terminal node with output, use it
+        if (terminalNodesWithOutput.includes(transformerId)) {
+          output = transformerResult.output;
+        } else if (terminalNodesWithOutput.length > 0) {
+          // If transformer node has downstream nodes, prefer the downstream terminal node's output
+          const terminalResult = result.results.get(terminalNodesWithOutput[0]);
+          if (terminalResult?.output !== undefined) {
+            output = terminalResult.output;
+          }
+        } else {
+          // No terminal nodes with output, use transformer node's output
+          output = transformerResult.output;
+        }
+      } else if (terminalNodesWithOutput.length > 0) {
+        // Transformer node has no output, use terminal node's output
+        const terminalResult = result.results.get(terminalNodesWithOutput[0]);
+        if (terminalResult?.output !== undefined) {
+          output = terminalResult.output;
         }
       }
+
+      if (output === undefined) {
+        throw new Error(
+          `No output found from transformer subgraph execution. Transformer node: ${transformerId}`
+        );
+      }
+
+      // Validate that the output is an array (required for flatmap)
+      if (!Array.isArray(output)) {
+        throw new Error(
+          `FlatMap transformer must output an array, but got ${typeof output}. Transformer node: ${transformerId}`
+        );
+      }
+
+      return output as OutputType[];
+    };
+
+    // Execute the transformer subgraph for each input item and flatten the results
+    if (parallel) {
+      // Run all transformations in parallel
+      const promises = input.map((item) => executeTransformerSubgraph(item));
+      const results = await Promise.all(promises);
       // Flatten all arrays into a single array
-      return results.flat() as OutputType[];
+      return results.flat();
     } else {
       // Run transformations sequentially and flatten
       const results: OutputType[] = [];
       for (const item of input) {
-        const result = await Promise.resolve(
-          transformerExecutor.execute(item, transformerNode.config || {}, dagContext)
-        );
-        // Each result should be an array, flatten it
-        if (Array.isArray(result)) {
-          results.push(...(result as OutputType[]));
-        } else {
-          throw new Error(
-            `FlatMap transformer must output an array, but got ${typeof result}. Transformer node type: ${transformerNode.type}`
-          );
-        }
+        const result = await executeTransformerSubgraph(item);
+        results.push(...result);
       }
       return results;
     }

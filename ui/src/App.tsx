@@ -736,15 +736,15 @@ function App() {
               
               if (filteredChanges.length > 0) {
                 onEdgesChange(filteredChanges);
-                // Save to history on edge deletion
+              // Save to history on edge deletion
                 const hasDeletion = filteredChanges.some((change) => change.type === 'remove');
-                if (hasDeletion) {
-                  if (saveHistoryTimeoutRef.current) {
-                    clearTimeout(saveHistoryTimeoutRef.current);
-                  }
-                  saveHistoryTimeoutRef.current = setTimeout(() => {
-                    saveToHistory();
-                  }, 300);
+              if (hasDeletion) {
+                if (saveHistoryTimeoutRef.current) {
+                  clearTimeout(saveHistoryTimeoutRef.current);
+                }
+                saveHistoryTimeoutRef.current = setTimeout(() => {
+                  saveToHistory();
+                }, 300);
                 }
               }
             }}
