@@ -1,13 +1,12 @@
-import type { BaseNode, Port } from '../types';
-import { NodeType } from '../types';
+import type { BaseNode, Port, Node } from '../types';
 import { NodeBuilder } from './base-builder';
 
 /**
  * Source node - outputs a literal value (no input)
- * Implementation: Literal
+ * This is a behavioral interface that source nodes should implement
+ * Implementation: LiteralNode (type: NodeType.LITERAL)
  */
 export interface SourceNode extends BaseNode {
-  type: NodeType.SOURCE;
   outputPorts: Port[];
   value: string | number | boolean | null | undefined;
 }
@@ -15,7 +14,7 @@ export interface SourceNode extends BaseNode {
 /**
  * Builder for source nodes (Literal implementation)
  */
-export class LiteralNodeBuilder extends NodeBuilder<SourceNode> {
+export class LiteralNodeBuilder extends NodeBuilder<Node & SourceNode> {
   value(val: string | number | boolean | null | undefined): this {
     this.node.value = val;
     return this;

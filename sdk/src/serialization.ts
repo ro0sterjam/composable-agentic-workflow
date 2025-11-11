@@ -1,7 +1,7 @@
 import { DAG, DAGData, Node, NodeType } from './types';
 import { DAGBuilder } from './dag-builder';
-import { executeLLMNode } from './llm-executor';
 import { executeExaSearchNode } from './exa-executor';
+import { LLMNode } from './nodes/llm';
 import type { DAGConfig } from './dag-config';
 
 /**
@@ -105,20 +105,17 @@ export function deserializeDAG(data: DAGData, functionRegistry?: Map<string, Fun
       }
       
       case NodeType.LLM: {
-        const node: any = {
-          id: serialized.id,
-          type: NodeType.LLM,
-          label: serialized.label || serialized.id,
-          inputPorts: serialized.inputPorts || [{ id: 'input', label: 'Input' }],
-          outputPorts: serialized.outputPorts || [{ id: 'output', label: 'Output' }],
-          model: serialized.model || 'openai/gpt-4o',
-          structuredOutput: serialized.structuredOutput,
-          // Execute function calls executeLLMNode with model and structuredOutput
-          execute: async (input: unknown, dagConfig?: DAGConfig) => {
-            return executeLLMNode(input, node.model, node.structuredOutput, dagConfig);
-          },
-          metadata: serialized.metadata || {},
-        };
+        const node = new LLMNode(
+          serialized.id,
+          serialized.model || 'openai/gpt-4o',
+          serialized.structuredOutput,
+          serialized.inputPorts || [{ id: 'input', label: 'Input' }],
+          serialized.outputPorts || [{ id: 'output', label: 'Output' }],
+          serialized.label || serialized.id
+        );
+        if (serialized.metadata) {
+          node.metadata = serialized.metadata;
+        }
         builder.addNode(node);
         break;
       }

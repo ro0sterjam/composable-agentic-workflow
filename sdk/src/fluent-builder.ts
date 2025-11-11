@@ -1,5 +1,6 @@
 import { DAGBuilder } from './dag-builder';
-import { Node, NodeType, Port, DAG } from './types';
+import { NodeType } from './types';
+import type { Node, DAG } from './types';
 import {
   ConditionalNode,
   LoopNode,
@@ -14,7 +15,6 @@ import {
   FanOutNodeBuilder,
   AggregatorNodeBuilder,
   LiteralNodeBuilder,
-  LLMNodeBuilder,
   ConsoleSinkBuilder,
   ExaSearchNodeBuilder,
   NodeBuilder,
@@ -160,22 +160,41 @@ export class FluentDAGBuilder {
   /**
    * Create an LLM node (sends input to LLM and outputs response)
    */
-  llm(id: string): LLMNodeBuilder {
-    const node: LLMNode = {
-      id,
-      type: NodeType.LLM,
-      label: id,
-      inputPorts: [{ id: 'input', label: 'Input' }],
-      outputPorts: [{ id: 'output', label: 'Output' }],
-      model: 'openai/gpt-4o', // Using gpt-4o for faster responses (gpt-5 is a reasoning model that's slower)
-      execute: async () => {
-        throw new Error('Execute function not initialized. This should be set by LLMNodeBuilder.');
-      },
-    };
+  llm(id: string, model?: string, structuredOutput?: import('./nodes/llm').StructuredOutputConfig): this {
+    const node = new LLMNode(id, model, structuredOutput);
     this.currentNode = node;
     this.builder.addNode(node);
-    // Builder will set up the execute function
-    return new LLMNodeBuilder(this, node);
+    return this;
+  }
+
+  /**
+   * Set the model for the current LLM node
+   */
+  model(modelName: string): this {
+    if (this.currentNode && this.currentNode.type === NodeType.LLM) {
+      (this.currentNode as LLMNode).model = modelName;
+    }
+    return this;
+  }
+
+  /**
+   * Set structured output for the current LLM node
+   */
+  structuredOutput(config: import('./nodes/llm').StructuredOutputConfig): this {
+    if (this.currentNode && this.currentNode.type === NodeType.LLM) {
+      (this.currentNode as LLMNode).structuredOutput = config;
+    }
+    return this;
+  }
+
+  /**
+   * Set label for the current node
+   */
+  label(text: string): this {
+    if (this.currentNode) {
+      this.currentNode.label = text;
+    }
+    return this;
   }
 
   /**
@@ -201,6 +220,20 @@ export class FluentDAGBuilder {
     this.builder.addNode(node);
     // Builder will set up the execute function
     return new ExaSearchNodeBuilder(this, node);
+  }
+
+  /**
+   * Connect the current node's output to another node's input
+   */
+  to(nodeId: string, port: string = 'input'): this {
+    if (!this.currentNode) {
+      throw new Error('No current node to connect from');
+    }
+    const outputPort = this.currentNode.type === NodeType.CONDITIONAL 
+      ? 'true' 
+      : 'output';
+    this.builder.connect(this.currentNode.id, outputPort, nodeId, port);
+    return this;
   }
 
   /**

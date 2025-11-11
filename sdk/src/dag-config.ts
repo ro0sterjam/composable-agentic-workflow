@@ -50,7 +50,7 @@ export const DEFAULT_DAG_CONFIG: DAGConfig = {
     maxRetries: 0,
   },
   environment: {
-    name: typeof window !== 'undefined' ? 'browser' : (process.env.NODE_ENV || 'development'),
+    name: (typeof (globalThis as { window?: unknown }).window !== 'undefined') ? 'browser' : (process.env.NODE_ENV || 'development'),
   },
 };
 
@@ -61,7 +61,7 @@ export const DEFAULT_DAG_CONFIG: DAGConfig = {
 export function createConfigFromEnv(overrides?: Partial<DAGConfig>): DAGConfig {
   // In browser, use import.meta.env if available, otherwise process.env
   const getEnvVar = (key: string): string | undefined => {
-    if (typeof window !== 'undefined') {
+    if (typeof (globalThis as { window?: unknown }).window !== 'undefined') {
       // Browser environment - Vite exposes env vars via import.meta.env
       // For now, we'll just return undefined and let the user set it via UI
       return undefined;
@@ -82,7 +82,7 @@ export function createConfigFromEnv(overrides?: Partial<DAGConfig>): DAGConfig {
     },
     environment: {
       ...DEFAULT_DAG_CONFIG.environment,
-      name: typeof window !== 'undefined' ? 'browser' : (process.env.NODE_ENV || 'development'),
+      name: (typeof (globalThis as { window?: unknown }).window !== 'undefined') ? 'browser' : (process.env.NODE_ENV || 'development'),
       ...overrides?.environment,
     },
     ...overrides,

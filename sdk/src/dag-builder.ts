@@ -1,4 +1,5 @@
-import { DAG, Node, NodeId, Connection, PortId, DAGData } from './types';
+import { DAG, Node, NodeId, Connection, PortId, DAGData, NodeType } from './types';
+import type { ConditionalNode, LoopNode, FanOutNode, AggregatorNode, LiteralNode, ConsoleSinkNode } from './nodes';
 
 /**
  * DAG Builder and Manager
@@ -168,28 +169,41 @@ export class DAGBuilder {
         metadata: node.metadata,
       };
 
-      if (node.type === 'execution') {
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-      } else if (node.type === 'conditional') {
-        serializable.inputPorts = node.inputPorts;
-        serializable.trueOutputPort = node.trueOutputPort;
-        serializable.falseOutputPort = node.falseOutputPort;
-      } else if (node.type === 'loop') {
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
-        serializable.maxIterations = node.maxIterations;
+      // Check for execution-like nodes (LLM, EXA_SEARCH, etc.)
+      if (node.type === NodeType.LLM || node.type === NodeType.EXA_SEARCH) {
+        const execNode = node as { inputPorts: any[]; outputPorts: any[] };
+        serializable.inputPorts = execNode.inputPorts;
+        serializable.outputPorts = execNode.outputPorts;
+      } else if (node.type === NodeType.CONDITIONAL) {
+        const condNode = node as ConditionalNode;
+        serializable.inputPorts = condNode.inputPorts;
+        serializable.trueOutputPort = condNode.trueOutputPort;
+        serializable.falseOutputPort = condNode.falseOutputPort;
+      } else if (node.type === NodeType.LOOP) {
+        const loopNode = node as LoopNode;
+        serializable.inputPorts = loopNode.inputPorts;
+        serializable.outputPorts = loopNode.outputPorts;
+        serializable.maxIterations = loopNode.maxIterations;
         // Note: subDag would need to be serialized recursively
         // For now, we'll skip it or serialize it separately
-      } else if (node.type === 'fan_out') {
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputBranches = node.outputBranches.map(branch => ({
+      } else if (node.type === NodeType.FAN_OUT) {
+        const fanOutNode = node as FanOutNode;
+        serializable.inputPorts = fanOutNode.inputPorts;
+        serializable.outputBranches = fanOutNode.outputBranches.map(branch => ({
           port: branch.port,
           // subDag would need recursive serialization
         }));
-      } else if (node.type === 'aggregator') {
-        serializable.inputPorts = node.inputPorts;
-        serializable.outputPorts = node.outputPorts;
+      } else if (node.type === NodeType.AGGREGATOR) {
+        const aggNode = node as AggregatorNode;
+        serializable.inputPorts = aggNode.inputPorts;
+        serializable.outputPorts = aggNode.outputPorts;
+      } else if (node.type === NodeType.LITERAL) {
+        const literalNode = node as LiteralNode;
+        serializable.outputPorts = literalNode.outputPorts;
+        serializable.value = literalNode.value;
+      } else if (node.type === NodeType.CONSOLE) {
+        const consoleNode = node as ConsoleSinkNode;
+        serializable.inputPorts = consoleNode.inputPorts;
       }
 
       nodes[id] = serializable;
