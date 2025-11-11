@@ -79,7 +79,7 @@ export function validateDAG(
   const getNodeCategory = (nodeId: string): 'source' | 'transformer' | 'terminal' | 'unknown' => {
     const node = nodeMap.get(nodeId);
     if (!node) return 'unknown';
-    
+
     if (registry.getSource(node.type)) return 'source';
     if (registry.getTransformer(node.type)) return 'transformer';
     if (registry.getTerminal(node.type)) return 'terminal';
@@ -105,16 +105,45 @@ export function validateDAG(
     }
   }
 
+  // Build set of nodes referenced by nesting nodes (map/flatmap/agent)
+  const referencedNodeIds = new Set<string>();
+  for (const node of dag.nodes) {
+    const config = node.config as Record<string, unknown> | undefined;
+    if (config && typeof config === 'object') {
+      // Check for transformerId in map and flatmap nodes
+      if ((node.type === 'map' || node.type === 'flatmap') && 'transformerId' in config) {
+        const transformerId = config.transformerId;
+        if (typeof transformerId === 'string') {
+          referencedNodeIds.add(transformerId);
+        }
+      }
+      // Check for tools in agent nodes
+      if (node.type === 'agent' && 'tools' in config) {
+        const tools = config.tools;
+        if (Array.isArray(tools)) {
+          for (const tool of tools) {
+            if (typeof tool === 'object' && tool !== null && 'transformerId' in tool) {
+              const toolTransformerId = tool.transformerId;
+              if (typeof toolTransformerId === 'string') {
+                referencedNodeIds.add(toolTransformerId);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Validate node type connections
   for (const edge of dag.edges) {
     const fromNode = nodeMap.get(edge.from);
     const toNode = nodeMap.get(edge.to);
-    
+
     if (!fromNode) {
       errors.push(`Edge references non-existent source node "${edge.from}"`);
       continue;
     }
-    
+
     if (!toNode) {
       errors.push(`Edge references non-existent target node "${edge.to}"`);
       continue;
@@ -136,6 +165,14 @@ export function validateDAG(
       const toLabel = toNode.label || toNode.id;
       errors.push(
         `Invalid connection: Source node "${toLabel}" (${toNode.type}) cannot be a target. Source nodes do not accept input.`
+      );
+    }
+
+    // Nodes used as subgraphs cannot have incoming connections in the main DAG
+    if (referencedNodeIds.has(edge.to)) {
+      const toLabel = toNode.label || toNode.id;
+      errors.push(
+        `Invalid connection: Node "${toLabel}" (${toNode.type}) is being used as a subgraph transformer (by map/flatmap/agent) and cannot have incoming connections in the main DAG.`
       );
     }
   }
@@ -245,7 +282,9 @@ export async function executeDAG(
       results.set(nodeId, result);
 
       // Log node completion with timing
-      logger.info(`[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`);
+      logger.info(
+        `[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`
+      );
 
       // Notify callback
       if (onNodeComplete) {
@@ -265,7 +304,7 @@ export async function executeDAG(
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      
+
       const result: NodeExecutionResult = {
         nodeId,
         error: errorObj,
@@ -273,7 +312,9 @@ export async function executeDAG(
       results.set(nodeId, result);
 
       // Log node completion with error and timing
-      logger.error(`[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`);
+      logger.error(
+        `[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`
+      );
 
       if (onNodeComplete) {
         onNodeComplete(nodeId, result);
@@ -605,7 +646,9 @@ export async function executeDAGFromNode(
       results.set(nodeId, result);
 
       // Log node completion with timing
-      logger.info(`[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`);
+      logger.info(
+        `[DAG] Completed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms`
+      );
 
       // Notify callback
       if (onNodeComplete) {
@@ -625,7 +668,7 @@ export async function executeDAGFromNode(
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      
+
       const result: NodeExecutionResult = {
         nodeId,
         error: errorObj,
@@ -633,7 +676,9 @@ export async function executeDAGFromNode(
       results.set(nodeId, result);
 
       // Log node completion with error and timing
-      logger.error(`[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`);
+      logger.error(
+        `[DAG] Failed node execution: ${nodeLabel} (${node.type}) - took ${executionTime}ms - ${errorObj.message}`
+      );
 
       if (onNodeComplete) {
         onNodeComplete(nodeId, result);
@@ -789,7 +834,7 @@ async function executeNode(
   const logger = getLogger();
   const nodeType = node.type;
   const dagContext: DAGContext = { dag, executorRegistry, cache };
-  
+
   logger.debug(`[executeNode] Executing node '${node.id}' of type '${nodeType}'`);
 
   // Try to find an executor for this node type
@@ -803,7 +848,9 @@ async function executeNode(
       // Source node - no input needed
       logger.debug(`[executeNode] Executing source node '${node.id}'`);
       const output = await Promise.resolve(sourceExecutor.execute(node.config || {}, dagContext));
-      logger.debug(`[executeNode] Source node '${node.id}' completed, output type: ${typeof output}`);
+      logger.debug(
+        `[executeNode] Source node '${node.id}' completed, output type: ${typeof output}`
+      );
       return output;
     } else if (transformerExecutor) {
       // Transformer node - needs input
@@ -812,9 +859,15 @@ async function executeNode(
         logger.error(`[executeNode] ${error.message}`);
         throw error;
       }
-      logger.debug(`[executeNode] Executing transformer node '${node.id}' with input type: ${typeof input}`);
-      const output = await Promise.resolve(transformerExecutor.execute(input, node.config || {}, dagContext));
-      logger.debug(`[executeNode] Transformer node '${node.id}' completed, output type: ${typeof output}`);
+      logger.debug(
+        `[executeNode] Executing transformer node '${node.id}' with input type: ${typeof input}`
+      );
+      const output = await Promise.resolve(
+        transformerExecutor.execute(input, node.config || {}, dagContext)
+      );
+      logger.debug(
+        `[executeNode] Transformer node '${node.id}' completed, output type: ${typeof output}`
+      );
       return output;
     } else if (terminalExecutor) {
       // Terminal node - needs input, no output
@@ -823,7 +876,9 @@ async function executeNode(
         logger.error(`[executeNode] ${error.message}`);
         throw error;
       }
-      logger.debug(`[executeNode] Executing terminal node '${node.id}' with input type: ${typeof input}`);
+      logger.debug(
+        `[executeNode] Executing terminal node '${node.id}' with input type: ${typeof input}`
+      );
       await Promise.resolve(terminalExecutor.execute(input, node.config || {}, dagContext));
       logger.debug(`[executeNode] Terminal node '${node.id}' completed`);
       return undefined; // Terminal nodes don't produce output

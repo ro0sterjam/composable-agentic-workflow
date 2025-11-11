@@ -161,7 +161,8 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
         </span>
       </div>
       
-      {nodeType !== NodeType.LITERAL && (
+      {/* Hide input connector if node is being used as a subgraph transformer */}
+      {nodeType !== NodeType.LITERAL && !data.isReferencedByNestingNode && (
         <Handle
           type="target"
           position={Position.Left}

@@ -332,6 +332,42 @@ function App() {
         }
       }
 
+      // Validate: prevent connections to nodes used as subgraphs
+      // Compute referenced nodes on the fly
+      const referencedNodeIds = new Set<string>();
+      for (const node of nodesRef.current) {
+        const nodeType = node.data.nodeType as NodeType;
+        if (nodeType === NodeType.MAP && node.data.mapConfig?.transformerId) {
+          referencedNodeIds.add(node.data.mapConfig.transformerId);
+        }
+        if (nodeType === NodeType.FLATMAP && node.data.flatmapConfig?.transformerId) {
+          referencedNodeIds.add(node.data.flatmapConfig.transformerId);
+        }
+        if (nodeType === NodeType.AGENT && node.data.agentConfig?.tools) {
+          for (const tool of node.data.agentConfig.tools) {
+            if (tool.transformerId) {
+              referencedNodeIds.add(tool.transformerId);
+            }
+          }
+        }
+      }
+
+      if (params.target && referencedNodeIds.has(params.target)) {
+        const targetNode = nodesRef.current.find((n) => n.id === params.target);
+        const targetLabel = targetNode?.data.label || params.target;
+        if (typeof addLog === 'function') {
+          addLog(
+            'error',
+            `Cannot create connection: Node "${targetLabel}" is being used as a subgraph transformer (by map/flatmap/agent) and cannot have incoming connections in the main DAG.`
+          );
+        }
+        // Mark as handled so menu doesn't show
+        connectionMadeRef.current = true;
+        setConnectionStart(null);
+        setMenuPosition(null);
+        return; // Reject the connection
+      }
+
       // Validate node type connections
       if (params.source && params.target) {
         const sourceNode = nodesRef.current.find((n) => n.id === params.source);
