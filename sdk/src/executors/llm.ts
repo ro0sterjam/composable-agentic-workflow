@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 
+import { getLogger } from '../logger';
 import type { SimpleLLMTransformerNodeConfig } from '../nodes/impl/llm';
 import type { OpenAIModel } from '../nodes/impl/models';
 
@@ -40,12 +41,14 @@ export class SimpleLLMExecutor<InputType = string, OutputType = string>
         ? interpolateString(config.system, input, dagContext)
         : undefined;
 
+      const logger = getLogger();
+      logger.debug(`[SimpleLLMExecutor] Executing LLM for input: ${input}`);
       const result = await generateText({
         model: openai(modelName),
         system: system,
         prompt: prompt,
       });
-
+      logger.debug(`[SimpleLLMExecutor] LLM executed for input: ${input}`);
       return result.text as OutputType;
     }
 

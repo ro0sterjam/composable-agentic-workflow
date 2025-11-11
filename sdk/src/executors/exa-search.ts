@@ -1,3 +1,4 @@
+import { getLogger } from '../logger';
 import type {
   ExaSearchTransformerNodeConfig,
   ExaSearchResponse,
@@ -32,7 +33,6 @@ export class ExaSearchExecutor<InputType = string, OutputType = ExaSearchResult>
       numResults: config.numResults ?? 10, // Default to 10
       contents: {
         text: true,
-        summary: true,
       },
     };
 
@@ -58,6 +58,8 @@ export class ExaSearchExecutor<InputType = string, OutputType = ExaSearchResult>
     }
 
     // Make API request
+    const logger = getLogger();
+    logger.debug(`[ExaSearchExecutor] Making API request to Exa API`);
     const response = await fetch('https://api.exa.ai/search', {
       method: 'POST',
       headers: {
@@ -66,6 +68,7 @@ export class ExaSearchExecutor<InputType = string, OutputType = ExaSearchResult>
       },
       body: JSON.stringify(requestBody),
     });
+    logger.debug(`[ExaSearchExecutor] Completed API request to Exa API`);
 
     if (!response.ok) {
       const errorText = await response.text();

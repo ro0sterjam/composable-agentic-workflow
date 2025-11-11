@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { generateObject, jsonSchema } from 'ai';
 
+import { getLogger } from '../logger';
 import type { OpenAIModel } from '../nodes/impl/models';
 import type { JSONSchema } from '../nodes/impl/structured-llm';
 
@@ -67,11 +68,14 @@ export class StructuredLLMExecutor<InputType = string, OutputType = unknown>
       }
 
       // Wrap JSON Schema using jsonSchema helper so generateObject can use it
+      const logger = getLogger();
+      logger.debug(`[StructuredLLMExecutor] Executing structured LLM for input: ${input}`);
       const result = await generateObject({
         model: openai(modelName),
         schema: jsonSchema(wrappedSchema),
         prompt: prompt,
       });
+      logger.debug(`[StructuredLLMExecutor] Structured LLM executed for input: ${input}`);
 
       // Unwrap if we wrapped a non-object schema
       if (needsUnwrap) {

@@ -35,7 +35,7 @@ export class AgentExecutor<InputType = string, OutputType = string>
     dagContext: DAGContext
   ): Promise<OutputType> {
     const logger = getLoggerFromContext(dagContext);
-    
+
     // Interpolate system prompt if provided
     const system = config.system ? interpolateString(config.system, input, dagContext) : undefined;
 
@@ -357,21 +357,184 @@ export class AgentExecutor<InputType = string, OutputType = string>
 
     const agent = new Agent(agentConfig);
 
-    // Generate response from the agent
+    // Stream response from the agent to log steps as they happen
     // The agent will automatically handle tool calls and continue until it generates text
     logger.debug(`[AgentExecutor] Starting agent execution...`);
-    const result = await agent.generate({
+
+    let stepNumber = 0;
+    let currentReasoning = '';
+    let currentText = '';
+    let accumulatedText = ''; // Accumulate all text across all steps
+    const currentToolCalls: Array<{ toolName: string; args: unknown }> = [];
+    const allToolCalls: Array<{ step: number; toolName: string; args: unknown }> = []; // Track all tool calls
+
+    const streamResult = agent.stream({
       prompt,
     });
 
-    logger.debug(
-      `[AgentExecutor] Agent execution completed. Response length: ${result.text.length} characters`
-    );
-    logger.debug(
-      `[AgentExecutor] Agent response:`,
-      result.text.substring(0, 500) + (result.text.length > 500 ? '...' : '')
-    );
+    // Track steps as they happen by consuming the stream events
+    let streamError: Error | null = null;
+    let hasGeneratedText = false;
 
-    return result.text as OutputType;
+    const processStream = async () => {
+      try {
+        for await (const part of streamResult.fullStream) {
+          // Track reasoning as it streams - log in real-time
+          if (part.type === 'reasoning-delta') {
+            currentReasoning += part.text;
+            // Log reasoning deltas as they come in (for very verbose debugging)
+            logger.debug(
+              `[AgentExecutor] Reasoning delta: ${part.text.substring(0, 50)}${part.text.length > 50 ? '...' : ''}`
+            );
+          }
+
+          // Track text as it streams - log in real-time
+          if (part.type === 'text-delta') {
+            currentText += part.text;
+            accumulatedText += part.text; // Accumulate across all steps
+            hasGeneratedText = true;
+            // Log text deltas as they come in (for very verbose debugging)
+            logger.debug(
+              `[AgentExecutor] Text delta: ${part.text.substring(0, 50)}${part.text.length > 50 ? '...' : ''}`
+            );
+          }
+
+          // Track tool calls - log immediately when tool is called
+          if (part.type === 'tool-call') {
+            const toolCall = {
+              toolName: part.toolName,
+              args: part.input,
+            };
+            currentToolCalls.push(toolCall);
+            // Log tool call immediately as it happens
+            const argsStr = JSON.stringify(part.input);
+            logger.info(
+              `[AgentExecutor] Tool called: ${part.toolName}(${argsStr.substring(0, 100)}${argsStr.length > 100 ? '...' : ''})`
+            );
+          }
+
+          // When we see a 'finish' event, a step has completed - log summary for this step
+          if (part.type === 'finish') {
+            stepNumber++;
+
+            // Track tool calls for this step (they were already logged when called)
+            if (currentToolCalls.length > 0) {
+              for (const toolCall of currentToolCalls) {
+                allToolCalls.push({
+                  step: stepNumber,
+                  toolName: toolCall.toolName,
+                  args: toolCall.args,
+                });
+              }
+            }
+
+            // Log step summary
+            const stepSummary = [];
+            if (currentReasoning) {
+              stepSummary.push(
+                `reasoning: ${currentReasoning.substring(0, 100)}${currentReasoning.length > 100 ? '...' : ''}`
+              );
+            }
+            if (currentText) {
+              stepSummary.push(
+                `text: ${currentText.substring(0, 100)}${currentText.length > 100 ? '...' : ''}`
+              );
+            }
+            if (currentToolCalls.length > 0) {
+              stepSummary.push(`${currentToolCalls.length} tool call(s)`);
+            }
+
+            if (stepSummary.length > 0) {
+              logger.info(
+                `[AgentExecutor] Step ${stepNumber} completed: ${stepSummary.join(', ')}`
+              );
+            } else {
+              logger.debug(`[AgentExecutor] Step ${stepNumber} completed (no output)`);
+            }
+
+            // Reset for next step (but keep accumulatedText)
+            currentReasoning = '';
+            currentText = '';
+            currentToolCalls.length = 0;
+          }
+        }
+      } catch (error) {
+        streamError = error instanceof Error ? error : new Error(String(error));
+        logger.error(`[AgentExecutor] Error processing stream:`, streamError.message);
+        if (streamError.stack) {
+          logger.error(`[AgentExecutor] Stream error stack:`, streamError.stack);
+        }
+      }
+    };
+
+    // Process the stream and wait for completion
+    await processStream();
+
+    // If there was a stream error, throw it
+    if (streamError) {
+      throw streamError;
+    }
+
+    // Get final result - handle case where no text was generated
+    let finalText: string;
+    try {
+      finalText = await streamResult.text;
+    } catch (error) {
+      // Check if it's the "No output generated" error
+      // The error name is AI_NoOutputGeneratedError or the message contains "No output generated"
+      const isNoOutputError =
+        error instanceof Error &&
+        (error.name === 'AI_NoOutputGeneratedError' ||
+          error.message.includes('No output generated') ||
+          error.message.includes('Check the stream for errors'));
+
+      if (isNoOutputError) {
+        logger.debug(`[AgentExecutor] Agent stream completed without generating final text output`);
+        logger.debug(`[AgentExecutor] Total steps executed: ${stepNumber}`);
+        logger.debug(`[AgentExecutor] Text was generated during streaming: ${hasGeneratedText}`);
+        logger.debug(`[AgentExecutor] Accumulated text length: ${accumulatedText.length}`);
+        logger.debug(`[AgentExecutor] Total tool calls: ${allToolCalls.length}`);
+
+        // If we have accumulated text from intermediate steps, use it
+        if (accumulatedText.trim().length > 0) {
+          logger.info(
+            `[AgentExecutor] Using accumulated text from intermediate steps (${accumulatedText.length} characters)`
+          );
+          finalText = accumulatedText;
+        } else if (allToolCalls.length > 0) {
+          // If no text but tool calls were made, return empty string - this is acceptable
+          const toolCallSummary = allToolCalls
+            .map((tc) => `${tc.toolName} (step ${tc.step})`)
+            .join(', ');
+          logger.info(
+            `[AgentExecutor] Agent completed ${allToolCalls.length} tool call(s) without generating text: ${toolCallSummary}. Returning empty string.`
+          );
+          finalText = '';
+        } else {
+          // No text and no tool calls - return empty string
+          logger.info(
+            `[AgentExecutor] Agent completed ${stepNumber} step(s) without generating text or making tool calls. Returning empty string.`
+          );
+          finalText = '';
+        }
+      } else {
+        // Re-throw other errors
+        throw error;
+      }
+    }
+
+    logger.debug(
+      `[AgentExecutor] Agent execution completed. Response length: ${finalText.length} characters`
+    );
+    if (finalText.length > 0) {
+      logger.debug(
+        `[AgentExecutor] Agent response:`,
+        finalText.substring(0, 500) + (finalText.length > 500 ? '...' : '')
+      );
+    } else {
+      logger.debug(`[AgentExecutor] Agent response: (empty)`);
+    }
+
+    return finalText as OutputType;
   }
 }

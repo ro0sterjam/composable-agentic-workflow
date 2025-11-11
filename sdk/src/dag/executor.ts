@@ -636,8 +636,11 @@ async function executeNode(
   dag: SerializedDAG,
   cache: Record<string, unknown>
 ): Promise<unknown> {
+  const logger = getLogger();
   const nodeType = node.type;
   const dagContext: DAGContext = { dag, executorRegistry, cache };
+  
+  logger.debug(`[executeNode] Executing node '${node.id}' of type '${nodeType}'`);
 
   // Try to find an executor for this node type
   const sourceExecutor = executorRegistry.getSource(nodeType);
@@ -645,29 +648,57 @@ async function executeNode(
   const terminalExecutor = executorRegistry.getTerminal(nodeType);
   const standaloneExecutor = executorRegistry.getStandalone(nodeType);
 
-  if (sourceExecutor) {
-    // Source node - no input needed
-    return await Promise.resolve(sourceExecutor.execute(node.config || {}, dagContext));
-  } else if (transformerExecutor) {
-    // Transformer node - needs input
-    if (input === undefined) {
-      throw new Error(`Transformer node ${node.id} requires input but none was provided`);
+  try {
+    if (sourceExecutor) {
+      // Source node - no input needed
+      logger.debug(`[executeNode] Executing source node '${node.id}'`);
+      const output = await Promise.resolve(sourceExecutor.execute(node.config || {}, dagContext));
+      logger.debug(`[executeNode] Source node '${node.id}' completed, output type: ${typeof output}`);
+      return output;
+    } else if (transformerExecutor) {
+      // Transformer node - needs input
+      if (input === undefined) {
+        const error = new Error(`Transformer node ${node.id} requires input but none was provided`);
+        logger.error(`[executeNode] ${error.message}`);
+        throw error;
+      }
+      logger.debug(`[executeNode] Executing transformer node '${node.id}' with input type: ${typeof input}`);
+      const output = await Promise.resolve(transformerExecutor.execute(input, node.config || {}, dagContext));
+      logger.debug(`[executeNode] Transformer node '${node.id}' completed, output type: ${typeof output}`);
+      return output;
+    } else if (terminalExecutor) {
+      // Terminal node - needs input, no output
+      if (input === undefined) {
+        const error = new Error(`Terminal node ${node.id} requires input but none was provided`);
+        logger.error(`[executeNode] ${error.message}`);
+        throw error;
+      }
+      logger.debug(`[executeNode] Executing terminal node '${node.id}' with input type: ${typeof input}`);
+      await Promise.resolve(terminalExecutor.execute(input, node.config || {}, dagContext));
+      logger.debug(`[executeNode] Terminal node '${node.id}' completed`);
+      return undefined; // Terminal nodes don't produce output
+    } else if (standaloneExecutor) {
+      // Standalone node - no input, no output
+      logger.debug(`[executeNode] Executing standalone node '${node.id}'`);
+      await Promise.resolve(standaloneExecutor.execute(node.config || {}, dagContext));
+      logger.debug(`[executeNode] Standalone node '${node.id}' completed`);
+      return undefined; // Standalone nodes don't produce output
+    } else {
+      const error = new Error(
+        `No executor found for node type: ${nodeType}. Make sure an executor is registered for this node type.`
+      );
+      logger.error(`[executeNode] ${error.message}`);
+      throw error;
     }
-    return await Promise.resolve(transformerExecutor.execute(input, node.config || {}, dagContext));
-  } else if (terminalExecutor) {
-    // Terminal node - needs input, no output
-    if (input === undefined) {
-      throw new Error(`Terminal node ${node.id} requires input but none was provided`);
+  } catch (error) {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.error(`[executeNode] Error executing node '${node.id}':`, errorObj.message);
+    if (errorObj.stack) {
+      logger.error(`[executeNode] Node '${node.id}' error stack:`, errorObj.stack);
     }
-    await Promise.resolve(terminalExecutor.execute(input, node.config || {}, dagContext));
-    return undefined; // Terminal nodes don't produce output
-  } else if (standaloneExecutor) {
-    // Standalone node - no input, no output
-    await Promise.resolve(standaloneExecutor.execute(node.config || {}, dagContext));
-    return undefined; // Standalone nodes don't produce output
-  } else {
-    throw new Error(
-      `No executor found for node type: ${nodeType}. Make sure an executor is registered for this node type.`
-    );
+    if (error instanceof Error && error.cause) {
+      logger.error(`[executeNode] Node '${node.id}' error cause:`, error.cause);
+    }
+    throw errorObj;
   }
 }

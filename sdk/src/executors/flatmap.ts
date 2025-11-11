@@ -1,4 +1,5 @@
 import { executeDAGFromNode } from '../dag/executor';
+import { getLogger } from '../logger';
 import type { FlatMapTransformerNodeConfig } from '../nodes/impl/flatmap';
 
 import type { TransformerExecutor, DAGContext } from './registry';
@@ -33,11 +34,14 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
 
     // Helper function to execute the transformer subgraph for a single item
     const executeTransformerSubgraph = async (item: InputType): Promise<OutputType[]> => {
+      const logger = getLogger();
+      logger.debug(`[FlatMapTransformerExecutor] Executing transformer subgraph for item: ${item}`);
       const result = await executeDAGFromNode(dag, transformerId, {
         executorRegistry,
         input: item,
         cache,
       });
+      logger.debug(`[FlatMapTransformerExecutor] Transformer subgraph executed for item: ${item}`);
 
       if (!result.success) {
         // Find the first error
@@ -56,9 +60,7 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
       const executedNodeIds = new Set(result.results.keys());
       const terminalNodes = Array.from(executedNodeIds).filter((nodeId) => {
         // Check if this node has any outgoing edges to other executed nodes
-        return !dag.edges.some(
-          (edge) => edge.from === nodeId && executedNodeIds.has(edge.to)
-        );
+        return !dag.edges.some((edge) => edge.from === nodeId && executedNodeIds.has(edge.to));
       });
 
       // Filter to only terminal nodes that have defined output (skip terminal executors like Console)
@@ -126,4 +128,3 @@ export class FlatMapTransformerExecutor<InputType, OutputType>
     }
   }
 }
-
