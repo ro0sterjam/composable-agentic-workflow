@@ -4,6 +4,12 @@ A system for building and visualizing Directed Acyclic Graphs (DAGs) with a flue
 
 ## Project Structure
 
+> **Note:** Before running any commands, make sure to install dependencies from the root directory:
+>
+> ```bash
+> npm install
+> ```
+
 This project is divided into four parts:
 
 ### 1. SDK (`sdk/`)
@@ -31,9 +37,29 @@ const dag = new LiteralSourceNode('input', { value: 'Hello' })
   .terminate(new ConsoleTerminalNode('output'));
 ```
 
-### 2. UI (`ui/`)
+### 2. App (`app/`)
 
-A visual drag-and-drop editor for creating DAGs. Uses the SDK and can save/load DAGs as JSON.
+A Node.js application for executing DAGs defined in JSON format. Provides both CLI and HTTP server interfaces.
+
+**Features:**
+
+- Command-line interface for executing DAGs
+- HTTP server with Server-Sent Events for streaming execution logs
+- Integration with UI for executing DAGs
+
+**Usage:**
+
+```bash
+npm run dev:app  # Start HTTP server
+# Or execute from CLI (from app directory):
+cd app && npm run execute -- --file ./dag.json
+```
+
+See [`app/README.md`](app/README.md) for detailed documentation.
+
+### 3. UI (`ui/`)
+
+A visual drag-and-drop editor for creating DAGs. Uses the SDK and can save/load DAGs as JSON. Requires the App HTTP server to be running for execution.
 
 **Features:**
 
@@ -48,31 +74,10 @@ A visual drag-and-drop editor for creating DAGs. Uses the SDK and can save/load 
 **Usage:**
 
 ```bash
-cd ui
-npm install
-npm run dev
+npm run dev:ui
 ```
 
-### 3. App (`app/`)
-
-A Node.js application for executing DAGs defined in JSON format. Provides both CLI and HTTP server interfaces.
-
-**Features:**
-
-- Command-line interface for executing DAGs
-- HTTP server with Server-Sent Events for streaming execution logs
-- Integration with UI for executing DAGs
-
-**Usage:**
-
-```bash
-cd app
-npm install
-npm run dev  # Start HTTP server
-npm run execute -- --file ./dag.json  # Execute from CLI
-```
-
-See [`app/README.md`](app/README.md) for detailed documentation.
+> **Note:** Make sure the App HTTP server is running (`npm run dev:app`) before executing DAGs from the UI.
 
 ### 4. Playground (`playground/`)
 
@@ -81,9 +86,7 @@ A code playground for testing the SDK manually. Edit the code and see results in
 **Usage:**
 
 ```bash
-cd playground
-npm install
-npm run dev
+npm run dev:playground
 ```
 
 ## Getting Started
