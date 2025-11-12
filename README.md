@@ -4,31 +4,31 @@ A system for building and visualizing Directed Acyclic Graphs (DAGs) with a flue
 
 ## Project Structure
 
-This project is divided into three parts:
+This project is divided into four parts:
 
 ### 1. SDK (`sdk/`)
 
 The core SDK for building DAGs programmatically with a fluent API. Can be used as a library in other projects.
 
 **Features:**
+
 - Fluent API for constructing DAGs
-- Support for 5 node types: Execution, Conditional, Loop, Fan-out, Aggregator
+- Support for multiple node types: Source, Transformer, Terminal nodes
 - JSON serialization/deserialization
-- DAG validation
+- DAG validation and execution
 
 **Usage:**
-```typescript
-import { FluentDAGBuilder } from '@composable-search/sdk';
 
-const dag = new FluentDAGBuilder('my-dag')
-  .execution('node1', async (input) => ({ processed: input }))
-  .label('Process Input')
-  .to('node2', 'input')
-  .execution('node2', async (input) => ({ transformed: input }))
-  .label('Transform')
-  .entry('node1')
-  .exit('node2')
-  .build();
+```typescript
+import {
+  LiteralSourceNode,
+  ConsoleTerminalNode,
+  SimpleLLMTransformerNode,
+} from '@composable-search/sdk';
+
+const dag = new LiteralSourceNode('input', { value: 'Hello' })
+  .pipe(new SimpleLLMTransformerNode('llm', { model: 'openai/gpt-4o-mini', prompt: '${input}' }))
+  .terminate(new ConsoleTerminalNode('output'));
 ```
 
 ### 2. UI (`ui/`)
@@ -36,25 +36,50 @@ const dag = new FluentDAGBuilder('my-dag')
 A visual drag-and-drop editor for creating DAGs. Uses the SDK and can save/load DAGs as JSON.
 
 **Features:**
+
 - Drag-and-drop node creation
 - Visual connection between nodes
 - Save DAGs as JSON
 - Load DAGs from JSON
+- Execute DAGs via HTTP server
 - Color-coded node types
 - Minimap and controls
 
 **Usage:**
+
 ```bash
 cd ui
 npm install
 npm run dev
 ```
 
-### 3. Playground (`playground/`)
+### 3. App (`app/`)
 
-A code playground for testing the SDK manually.
+A Node.js application for executing DAGs defined in JSON format. Provides both CLI and HTTP server interfaces.
+
+**Features:**
+
+- Command-line interface for executing DAGs
+- HTTP server with Server-Sent Events for streaming execution logs
+- Integration with UI for executing DAGs
 
 **Usage:**
+
+```bash
+cd app
+npm install
+npm run dev  # Start HTTP server
+npm run execute -- --file ./dag.json  # Execute from CLI
+```
+
+See [`app/README.md`](app/README.md) for detailed documentation.
+
+### 4. Playground (`playground/`)
+
+A code playground for testing the SDK manually. Edit the code and see results interactively.
+
+**Usage:**
+
 ```bash
 cd playground
 npm install
@@ -98,6 +123,7 @@ npm run dev:playground
 ## Fluent API Examples
 
 ### Simple Chain
+
 ```typescript
 const dag = new FluentDAGBuilder('chain')
   .execution('step1', async (input) => input)
@@ -107,6 +133,7 @@ const dag = new FluentDAGBuilder('chain')
 ```
 
 ### Conditional Branching
+
 ```typescript
 const dag = new FluentDAGBuilder('conditional')
   .execution('start', async (input) => input)
@@ -120,6 +147,7 @@ const dag = new FluentDAGBuilder('conditional')
 ```
 
 ### Fan-out and Aggregator
+
 ```typescript
 const dag = new FluentDAGBuilder('fanout')
   .execution('source', async (input) => input)
@@ -145,9 +173,7 @@ DAGs can be serialized to JSON for storage and transmission:
 ```typescript
 import { serializeDAG, deserializeDAG } from '@composable-search/sdk';
 
-const dag = new FluentDAGBuilder('my-dag')
-  .execution('node1', async (input) => input)
-  .build();
+const dag = new FluentDAGBuilder('my-dag').execution('node1', async (input) => input).build();
 
 const json = serializeDAG(dag);
 // Save or transmit JSON
