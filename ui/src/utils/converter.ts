@@ -46,6 +46,16 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
     // Extract config based on node type
     if (nodeType === 'literal') {
       config.value = node.data.value ?? '';
+    } else if (nodeType === 'dataset') {
+      // Convert JSON string from UI to array for serialization
+      try {
+        const parsed = typeof node.data.value === 'string' 
+          ? JSON.parse(node.data.value) 
+          : (node.data.value || []);
+        config.value = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        config.value = [];
+      }
     } else if (nodeType === 'simple_llm') {
       if (node.data.llmConfig) {
         config.model = node.data.llmConfig.model || 'openai/gpt-4o-mini';
@@ -272,6 +282,18 @@ export function convertFromSerializedDAG(
       nodeData.value = config?.value !== undefined && config?.value !== null 
         ? String(config.value) 
         : '';
+    } else if (nodeType === 'dataset') {
+      // Convert array from DAG to JSON string for UI
+      if (config?.value !== undefined && config?.value !== null) {
+        if (Array.isArray(config.value)) {
+          nodeData.value = JSON.stringify(config.value);
+        } else {
+          // Fallback: try to stringify whatever it is
+          nodeData.value = JSON.stringify(config.value);
+        }
+      } else {
+        nodeData.value = '[]';
+      }
     } else if (nodeType === 'simple_llm') {
       const llmConfig: Record<string, unknown> = {
         model: config?.model || 'openai/gpt-4o-mini',

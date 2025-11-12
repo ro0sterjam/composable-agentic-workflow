@@ -10,6 +10,7 @@ interface NodeTypeMenuProps {
 
 const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦' },
+  { type: NodeType.DATASET, label: 'Dataset', icon: '📊' },
   { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖' },
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯' },
   { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍' },
@@ -28,7 +29,7 @@ const nodeTypes = [
  */
 function getNodeTypeCategory(nodeType: string): 'source' | 'transformer' | 'terminal' {
   // Sources: produce output, no input
-  const sources = ['literal'];
+  const sources = ['literal', 'dataset'];
   
   // Terminals: take input, produce no output
   const terminals = ['console'];

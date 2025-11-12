@@ -6,6 +6,7 @@ export type NodeType = string;
 
 export const NODE_TYPES = {
   LITERAL: 'literal',
+  DATASET: 'dataset',
   CONSOLE: 'console',
   SIMPLE_LLM: 'simple_llm',
   STRUCTURED_LLM: 'structured_llm',

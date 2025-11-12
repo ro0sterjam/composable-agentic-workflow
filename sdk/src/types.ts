@@ -15,6 +15,7 @@ export type NodeType = string;
  */
 export const DEFAULT_NODE_TYPES = {
   LITERAL: 'literal',
+  DATASET: 'dataset',
   CONSOLE: 'console',
   SIMPLE_LLM: 'simple_llm',
   STRUCTURED_LLM: 'structured_llm',
@@ -31,6 +32,7 @@ export const DEFAULT_NODE_TYPES = {
 // Re-export node implementations
 export {
   LiteralSourceNode,
+  DatasetSourceNode,
   ConsoleTerminalNode,
   SimpleLLMTransformerNode,
   StructuredLLMTransformerNode,

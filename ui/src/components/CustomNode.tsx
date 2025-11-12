@@ -78,6 +78,7 @@ interface CustomNodeData {
 
 const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: string }> = {
   [NodeType.LITERAL]: { bg: '#f3f4f6', border: '#6b7280', text: '#374151' },
+  [NodeType.DATASET]: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
   [NodeType.SIMPLE_LLM]: { bg: '#e0e7ff', border: '#6366f1', text: '#312e81' },
   [NodeType.STRUCTURED_LLM]: { bg: '#fce7f3', border: '#ec4899', text: '#831843' },
   [NodeType.MAP]: { bg: '#e6fffa', border: '#38b2ac', text: '#234e52' },
@@ -94,6 +95,7 @@ const nodeTypeColors: Record<NodeType, { bg: string; border: string; text: strin
 
 const nodeTypeIcons: Record<NodeType, string> = {
   [NodeType.LITERAL]: '📦',
+  [NodeType.DATASET]: '📊',
   [NodeType.SIMPLE_LLM]: '🤖',
   [NodeType.STRUCTURED_LLM]: '🎯',
   [NodeType.MAP]: '🗺️',
@@ -163,7 +165,7 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
       </div>
       
       {/* Hide input connector if node is being used as a subgraph transformer */}
-      {nodeType !== NodeType.LITERAL && !data.isReferencedByNestingNode && (
+      {nodeType !== NodeType.LITERAL && nodeType !== NodeType.DATASET && !data.isReferencedByNestingNode && (
         <Handle
           type="target"
           position={Position.Left}
@@ -231,6 +233,21 @@ function CustomNode({ data, selected }: NodeProps<CustomNodeData>) {
           <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
             <span className="port-label">
               Value: {data.value === null ? 'null' : data.value === undefined ? 'undefined' : String(data.value)}
+            </span>
+          </div>
+        )}
+        {nodeType === NodeType.DATASET && (
+          <div className="port" style={{ marginTop: '4px', fontSize: '11px', color: '#6b7280' }}>
+            <span className="port-label">
+              {(() => {
+                try {
+                  const parsed = data.value ? JSON.parse(String(data.value)) : [];
+                  const count = Array.isArray(parsed) ? parsed.length : 0;
+                  return `Array of ${count} object${count !== 1 ? 's' : ''}`;
+                } catch {
+                  return 'Invalid JSON';
+                }
+              })()}
             </span>
           </div>
         )}

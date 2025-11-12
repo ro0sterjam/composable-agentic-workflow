@@ -23,6 +23,7 @@ import { ExtractExecutor } from '../../sdk/src/executors/extract.js';
 import { FilterExecutor } from '../../sdk/src/executors/filter.js';
 import { FlatMapTransformerExecutor } from '../../sdk/src/executors/flatmap.js';
 import { LiteralSourceExecutor } from '../../sdk/src/executors/literal.js';
+import { DatasetSourceExecutor } from '../../sdk/src/executors/dataset.js';
 import { SimpleLLMExecutor } from '../../sdk/src/executors/llm.js';
 import { MapTransformerExecutor } from '../../sdk/src/executors/map.js';
 import { PeekTransformerExecutor } from '../../sdk/src/executors/peek.js';
@@ -114,6 +115,7 @@ async function executeDAGFromFile(options: ExecutionOptions): Promise<void> {
 
   // Register executors (no custom logging needed - they use the global logger)
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
+  defaultExecutorRegistry.registerSource('dataset', new DatasetSourceExecutor());
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());

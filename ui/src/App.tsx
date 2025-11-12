@@ -39,7 +39,7 @@ const getNodeId = () => `node_${++nodeIdCounter}`;
  */
 function getNodeTypeCategory(nodeType: string): 'source' | 'transformer' | 'terminal' {
   // Sources: produce output, no input
-  const sources = ['literal'];
+  const sources = ['literal', 'dataset'];
   
   // Terminals: take input, produce no output
   const terminals = ['console'];
@@ -479,6 +479,7 @@ function App() {
           nodeType: type,
           id: nodeId,
           ...(type === NodeType.LITERAL && { value: '' }),
+          ...(type === NodeType.DATASET && { value: '[]' }),
           ...(type === NodeType.MAP && { mapConfig: { parallel: true } }),
           ...(type === NodeType.FLATMAP && { flatmapConfig: { parallel: true } }),
         },
@@ -514,6 +515,7 @@ function App() {
         nodeType,
         id: nodeId,
         ...(nodeType === NodeType.LITERAL && { value: '' }),
+        ...(nodeType === NodeType.DATASET && { value: '[]' }),
       },
     };
 
@@ -783,7 +785,8 @@ function App() {
           nodeType,
           id: nodeId,
           ...(nodeType === NodeType.LITERAL && { value: '' }),
-                  ...(nodeType === NodeType.MAP && { mapConfig: { parallel: true } }),
+        ...(nodeType === NodeType.DATASET && { value: '[]' }),
+        ...(nodeType === NodeType.MAP && { mapConfig: { parallel: true } }),
                   ...(nodeType === NodeType.FLATMAP && { flatmapConfig: { parallel: true } }),
         },
       };

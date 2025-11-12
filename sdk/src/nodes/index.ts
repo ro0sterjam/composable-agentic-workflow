@@ -4,6 +4,7 @@
 
 export * from './types';
 export * from './impl/literal';
+export * from './impl/dataset';
 export * from './impl/console';
 export * from './impl/llm';
 export * from './impl/structured-llm';

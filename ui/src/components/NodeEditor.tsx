@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NodeType } from '../types';
 import DataNodeEditor from './DataNodeEditor';
+import DatasetNodeEditor from './DatasetNodeEditor';
 import LLMNodeEditor from './LLMNodeEditor';
 import StructuredLLMNodeEditor from './StructuredLLMNodeEditor';
 import ExaSearchNodeEditor from './ExaSearchNodeEditor';
@@ -197,6 +198,27 @@ function NodeEditor({
         onSave={(id, value, type, label) => {
           // value is always a string now
           onSave({ label: label || undefined, value: value as string });
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Special editor for DATASET nodes (JSON array of objects)
+  if (nodeType === NodeType.DATASET) {
+    // Convert existing value to string (JSON)
+    const jsonValue = currentValue !== undefined && currentValue !== null 
+      ? (typeof currentValue === 'string' ? currentValue : JSON.stringify(currentValue))
+      : '[]';
+
+    return (
+      <DatasetNodeEditor
+        nodeId={nodeId}
+        currentLabel={currentLabel}
+        currentValue={jsonValue}
+        onSave={(id, value, label) => {
+          onSave({ label: label || undefined, value });
           onClose();
         }}
         onClose={onClose}

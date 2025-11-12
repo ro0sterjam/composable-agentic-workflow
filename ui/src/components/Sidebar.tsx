@@ -7,6 +7,7 @@ interface SidebarProps {
 
 const nodeTypes = [
   { type: NodeType.LITERAL, label: 'Literal', icon: '📦', description: 'Literal value (no input)' },
+  { type: NodeType.DATASET, label: 'Dataset', icon: '📊', description: 'JSON array of objects (no input)' },
   { type: NodeType.SIMPLE_LLM, label: 'Simple LLM', icon: '🤖', description: 'Transform input using LLM' },
   { type: NodeType.STRUCTURED_LLM, label: 'Structured LLM', icon: '🎯', description: 'Generate structured output using LLM' },
   { type: NodeType.EXA_SEARCH, label: 'Exa Search', icon: '🔍', description: 'Search the web using Exa API' },

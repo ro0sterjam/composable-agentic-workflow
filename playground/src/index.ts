@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AgentExecutor } from '../../sdk/src/executors/agent';
 import { CacheExecutor } from '../../sdk/src/executors/cache';
 import { ConsoleTerminalExecutor } from '../../sdk/src/executors/console';
+import { DatasetSourceExecutor } from '../../sdk/src/executors/dataset';
 import { DedupeExecutor } from '../../sdk/src/executors/dedupe';
 import { ExaSearchExecutor } from '../../sdk/src/executors/exa-search';
 import { ExtractExecutor } from '../../sdk/src/executors/extract';
@@ -75,6 +76,7 @@ async function main() {
 
   // Register executors
   defaultExecutorRegistry.registerSource('literal', new LiteralSourceExecutor());
+  defaultExecutorRegistry.registerSource('dataset', new DatasetSourceExecutor());
   defaultExecutorRegistry.registerTerminal('console', new ConsoleTerminalExecutor());
   defaultExecutorRegistry.registerTransformer('simple_llm', new SimpleLLMExecutor());
   defaultExecutorRegistry.registerTransformer('structured_llm', new StructuredLLMExecutor());
