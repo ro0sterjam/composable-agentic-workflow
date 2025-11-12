@@ -95,12 +95,17 @@ async function main() {
     prompt: 'Generate 5 variants of the following query: ${input}',
     schema: z.array(z.string()),
   })
-    .pipe(new FlatMapTransformerNode('search', new ExaSearchTransformerNode('exa_search')))
-    .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url' }))
+    .pipe(
+      new FlatMapTransformerNode(
+        'search',
+        new ExaSearchTransformerNode('exa_search', { type: 'fast', numResults: 10 })
+      )
+    )
+    .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url', method: 'first' }))
     .pipe(
       new MapTransformerNode(
         'mapText',
-        new ExtractTransformerNode('extract', { property: 'summary' }).pipe(
+        new ExtractTransformerNode('extract', { property: 'text' }).pipe(
           new StructuredLLMTransformerNode('summary', {
             model: 'openai/gpt-4o-mini',
             schema: z.string(),
@@ -113,7 +118,9 @@ async function main() {
     .pipe(new FilterTransformerNode('filter', { expression: 'input !== "No answer found"' }));
 
   // Create a simple DAG: literal source -> LLM transformer -> console terminal
-  const standalone = new LiteralSourceNode('start', { value: 'Best movies of 2025' })
+  const standalone = new LiteralSourceNode('start', {
+    value: 'How many runs did each of the bluejays players make in the 2025 world series?',
+  })
     .pipe(new CacheTransformerNode('cacheQuery', { property: 'query' }))
     .pipe(
       new AgentTransformerNode('agent', {
@@ -128,6 +135,12 @@ async function main() {
             transformer: toolFlow,
           },
         ],
+        schema: z.array(
+          z.object({
+            player: z.string(),
+            runs: z.number(),
+          })
+        ),
       })
     )
     .terminate(new ConsoleTerminalNode('end'));
