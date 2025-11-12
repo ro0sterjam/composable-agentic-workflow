@@ -6,72 +6,27 @@ interface DataNodeEditorProps {
   currentLabel?: string;
   currentValue: string | number | boolean | null | undefined;
   currentType: 'string' | 'number' | 'boolean' | 'null';
-  onSave: (nodeId: string, value: string | number | boolean | null | undefined, type: 'string' | 'number' | 'boolean' | 'null', label?: string) => void;
+  onSave: (nodeId: string, value: string, type: 'string', label?: string) => void;
   onClose: () => void;
 }
 
 function DataNodeEditor({ nodeId, currentLabel, currentValue, currentType, onSave, onClose }: DataNodeEditorProps) {
   const [label, setLabel] = useState(currentLabel || '');
-  const [valueType, setValueType] = useState<'string' | 'number' | 'boolean' | 'null'>(currentType);
+  // Always convert current value to string
   const [stringValue, setStringValue] = useState(
-    currentType === 'string' ? String(currentValue !== undefined && currentValue !== null ? currentValue : '') : ''
+    String(currentValue !== undefined && currentValue !== null ? currentValue : '')
   );
-  const [numberValue, setNumberValue] = useState(
-    currentType === 'number' ? (typeof currentValue === 'number' ? currentValue : 0) : 0
-  );
-  const [booleanValue, setBooleanValue] = useState(
-    currentType === 'boolean' ? (typeof currentValue === 'boolean' ? currentValue : false) : false
-  );
-  const previousValueTypeRef = useRef(valueType);
 
   // Update state when props change (e.g., modal reopened)
   useEffect(() => {
     setLabel(currentLabel || '');
-    setValueType(currentType);
-    
-    if (currentType === 'string') {
-      setStringValue(String(currentValue !== undefined && currentValue !== null ? currentValue : ''));
-    } else if (currentType === 'number') {
-      setNumberValue(typeof currentValue === 'number' ? currentValue : 0);
-    } else if (currentType === 'boolean') {
-      setBooleanValue(typeof currentValue === 'boolean' ? currentValue : false);
-    }
-    previousValueTypeRef.current = currentType;
-  }, [currentLabel, currentValue, currentType]);
-
-  useEffect(() => {
-    // Only reset values when user manually changes type (not on initial mount or prop update)
-    if (previousValueTypeRef.current !== valueType && previousValueTypeRef.current !== undefined) {
-      if (valueType === 'string') {
-        setStringValue('');
-      } else if (valueType === 'number') {
-        setNumberValue(0);
-      } else if (valueType === 'boolean') {
-        setBooleanValue(false);
-      }
-    }
-    previousValueTypeRef.current = valueType;
-  }, [valueType]);
+    // Always convert to string
+    setStringValue(String(currentValue !== undefined && currentValue !== null ? currentValue : ''));
+  }, [currentLabel, currentValue]);
 
   const handleSave = () => {
-    let finalValue: string | number | boolean | null | undefined;
-    
-    switch (valueType) {
-      case 'string':
-        finalValue = stringValue;
-        break;
-      case 'number':
-        finalValue = numberValue;
-        break;
-      case 'boolean':
-        finalValue = booleanValue;
-        break;
-      case 'null':
-        finalValue = null;
-        break;
-    }
-    
-    onSave(nodeId, finalValue, valueType, label || undefined);
+    // Always save as string
+    onSave(nodeId, stringValue, 'string', label || undefined);
     onClose();
   };
 
@@ -133,13 +88,15 @@ function DataNodeEditor({ nodeId, currentLabel, currentValue, currentType, onSav
             />
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              Value Type
+              Value
             </label>
-            <select
-              value={valueType}
-              onChange={(e) => setValueType(e.target.value as 'string' | 'number' | 'boolean' | 'null')}
+            <input
+              type="text"
+              value={stringValue}
+              onChange={(e) => setStringValue(e.target.value)}
+              placeholder="Enter string value"
               style={{
                 width: '100%',
                 padding: '10px',
@@ -148,91 +105,9 @@ function DataNodeEditor({ nodeId, currentLabel, currentValue, currentType, onSav
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',
-                cursor: 'pointer',
               }}
-            >
-              <option value="string">String</option>
-              <option value="number">Number</option>
-              <option value="boolean">Boolean</option>
-              <option value="null">Null</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
-              Value
-            </label>
-            {valueType === 'string' && (
-              <input
-                type="text"
-                value={stringValue}
-                onChange={(e) => setStringValue(e.target.value)}
-                placeholder="Enter string value"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: '#3a3a3a',
-                  border: '1px solid #4a4a4a',
-                  borderRadius: '6px',
-                  color: 'white',
-                  fontSize: '14px',
-                }}
-                autoFocus
-              />
-            )}
-            {valueType === 'number' && (
-              <input
-                type="number"
-                value={numberValue}
-                onChange={(e) => setNumberValue(parseFloat(e.target.value) || 0)}
-                placeholder="Enter number value"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: '#3a3a3a',
-                  border: '1px solid #4a4a4a',
-                  borderRadius: '6px',
-                  color: 'white',
-                  fontSize: '14px',
-                }}
-                autoFocus
-              />
-            )}
-            {valueType === 'boolean' && (
-              <select
-                value={String(booleanValue)}
-                onChange={(e) => setBooleanValue(e.target.value === 'true')}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: '#3a3a3a',
-                  border: '1px solid #4a4a4a',
-                  borderRadius: '6px',
-                  color: 'white',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                }}
-                autoFocus
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            )}
-            {valueType === 'null' && (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: '#3a3a3a',
-                  border: '1px solid #4a4a4a',
-                  borderRadius: '6px',
-                  color: '#9ca3af',
-                  fontSize: '14px',
-                }}
-              >
-                null
-              </div>
-            )}
+              autoFocus
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>

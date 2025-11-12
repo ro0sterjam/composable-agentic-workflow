@@ -84,7 +84,7 @@ interface NodeEditorProps {
 
 export interface NodeConfig {
   label?: string;
-  value?: string | number | boolean | null | undefined;
+  value?: string; // Literal nodes only support strings
   llmConfig?: {
     model?: string;
     system?: string;
@@ -181,27 +181,22 @@ function NodeEditor({
     onClose();
   };
 
-  // Special editor for LITERAL nodes
+  // Special editor for LITERAL nodes (only strings)
   if (nodeType === NodeType.LITERAL) {
-    let currentType: 'string' | 'number' | 'boolean' | 'null' = 'string';
-    if (typeof currentValue === 'number') {
-      currentType = 'number';
-    } else if (typeof currentValue === 'boolean') {
-      currentType = 'boolean';
-    } else if (currentValue === null) {
-      currentType = 'null';
-    } else {
-      currentType = 'string';
-    }
+    // Always treat as string - convert existing value to string
+    const stringValue = currentValue !== undefined && currentValue !== null 
+      ? String(currentValue) 
+      : '';
 
     return (
       <DataNodeEditor
         nodeId={nodeId}
         currentLabel={currentLabel}
-        currentValue={currentValue}
-        currentType={currentType}
+        currentValue={stringValue}
+        currentType="string"
         onSave={(id, value, type, label) => {
-          onSave({ label: label || undefined, value });
+          // value is always a string now
+          onSave({ label: label || undefined, value: value as string });
           onClose();
         }}
         onClose={onClose}

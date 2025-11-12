@@ -268,7 +268,10 @@ export function convertFromSerializedDAG(
     
     // Convert config based on node type
     if (nodeType === 'literal') {
-      nodeData.value = config?.value ?? '';
+      // Always convert to string
+      nodeData.value = config?.value !== undefined && config?.value !== null 
+        ? String(config.value) 
+        : '';
     } else if (nodeType === 'simple_llm') {
       const llmConfig: Record<string, unknown> = {
         model: config?.model || 'openai/gpt-4o-mini',
