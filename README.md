@@ -117,56 +117,105 @@ npm run dev:playground
 
 ## Node Types
 
-1. **Execution** ⚙️ - Takes input and produces output
-2. **Conditional** ❓ - Branches based on a condition
-3. **Loop** 🔁 - Iterates over a sub-DAG
-4. **Fan Out** 🔀 - Duplicates input to multiple paths
-5. **Aggregator** 📊 - Combines multiple inputs into one output
+### Source Nodes
+
+- **Literal** - Static string value
+- **Dataset** - Array of objects
+
+### Transformer Nodes
+
+- **Simple LLM** - OpenAI LLM calls with system/prompt
+- **Structured LLM** - LLM calls with JSON schema output
+- **Map** - Transform each item in an array using a subgraph
+- **FlatMap** - Transform and flatten arrays using a subgraph
+- **Extract** - Extract a property from objects
+- **Filter** - Filter arrays based on an expression
+- **Dedupe** - Remove duplicates from arrays
+- **Cache** - Cache values by property
+- **Peek** - Inspect data without modifying it
+- **Exa Search** - Search using Exa API
+- **Agent** - Agent with tool calling capabilities
+
+### Terminal Nodes
+
+- **Console** - Output to console
 
 ## Fluent API Examples
 
 ### Simple Chain
 
 ```typescript
-const dag = new FluentDAGBuilder('chain')
-  .execution('step1', async (input) => input)
-  .to('step2', 'input')
-  .execution('step2', async (input) => input)
-  .build();
+import {
+  LiteralSourceNode,
+  ConsoleTerminalNode,
+  SimpleLLMTransformerNode,
+} from '@composable-search/sdk';
+
+const dag = new LiteralSourceNode('input', { value: 'Hello, World!' })
+  .pipe(
+    new SimpleLLMTransformerNode('llm', {
+      model: 'openai/gpt-4o-mini',
+      prompt: 'Capitalize this: ${input}',
+    })
+  )
+  .terminate(new ConsoleTerminalNode('output'));
 ```
 
-### Conditional Branching
+### Map with Subgraph
 
 ```typescript
-const dag = new FluentDAGBuilder('conditional')
-  .execution('start', async (input) => input)
-  .to('check', 'input')
-  .conditional('check', async (input: any) => input.value > 10)
-  .toTrue('high', 'input')
-  .toFalse('low', 'input')
-  .execution('high', async (input) => ({ result: 'HIGH' }))
-  .execution('low', async (input) => ({ result: 'LOW' }))
-  .build();
+import {
+  DatasetSourceNode,
+  ConsoleTerminalNode,
+  MapTransformerNode,
+  ExtractTransformerNode,
+} from '@composable-search/sdk';
+
+const dag = new DatasetSourceNode('data', {
+  value: [
+    { name: 'Alice', age: 30 },
+    { name: 'Bob', age: 25 },
+  ],
+})
+  .pipe(
+    new MapTransformerNode('process', new ExtractTransformerNode('extract', { property: 'name' }))
+  )
+  .terminate(new ConsoleTerminalNode('output'));
 ```
 
-### Fan-out and Aggregator
+### Complex Example with FlatMap and Filter
 
 ```typescript
-const dag = new FluentDAGBuilder('fanout')
-  .execution('source', async (input) => input)
-  .to('fanout', 'input')
-  .fanOut('fanout', 3)
-  .toPort('output0', 'process1', 'input')
-  .toPort('output1', 'process2', 'input')
-  .toPort('output2', 'process3', 'input')
-  .execution('process1', async (input) => input)
-  .to('aggregate', 'input')
-  .execution('process2', async (input) => input)
-  .to('aggregate', 'input')
-  .execution('process3', async (input) => input)
-  .to('aggregate', 'input')
-  .aggregator('aggregate', async (inputs) => ({ results: inputs }))
-  .build();
+import {
+  LiteralSourceNode,
+  ConsoleTerminalNode,
+  StructuredLLMTransformerNode,
+  FlatMapTransformerNode,
+  ExaSearchTransformerNode,
+  DedupeTransformerNode,
+  FilterTransformerNode,
+} from '@composable-search/sdk';
+import { z } from 'zod';
+
+const dag = new LiteralSourceNode('query', { value: 'What is TypeScript?' })
+  .pipe(
+    new StructuredLLMTransformerNode('generateVariants', {
+      model: 'openai/gpt-4o-mini',
+      prompt: 'Generate 3 search query variants: ${input}',
+      schema: z.array(z.string()),
+    })
+  )
+  .pipe(
+    new FlatMapTransformerNode(
+      'search',
+      new ExaSearchTransformerNode('exa_search', { type: 'fast', numResults: 5 })
+    )
+  )
+  .pipe(new DedupeTransformerNode('dedupe', { byProperty: 'url', method: 'first' }))
+  .pipe(
+    new FilterTransformerNode('filter', { expression: 'input.text && input.text.length > 100' })
+  )
+  .terminate(new ConsoleTerminalNode('output'));
 ```
 
 ## JSON Serialization
@@ -174,14 +223,16 @@ const dag = new FluentDAGBuilder('fanout')
 DAGs can be serialized to JSON for storage and transmission:
 
 ```typescript
-import { serializeDAG, deserializeDAG } from '@composable-search/sdk';
+import { serializeStandAloneNode, executeDAG } from '@composable-search/sdk';
 
-const dag = new FluentDAGBuilder('my-dag').execution('node1', async (input) => input).build();
+const dag = new LiteralSourceNode('input', { value: 'Hello' }).terminate(
+  new ConsoleTerminalNode('output')
+);
 
-const json = serializeDAG(dag);
+const serializedDAG = serializeStandAloneNode(dag);
 // Save or transmit JSON
 
-const restoredDag = deserializeDAG(json);
+await executeDAG(serializedDAG);
 ```
 
 ## License
