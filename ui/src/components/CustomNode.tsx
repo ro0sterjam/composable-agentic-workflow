@@ -69,6 +69,7 @@ interface CustomNodeData {
       transformerLabel?: string;
     }>;
     maxLoops?: number;
+    schema?: string;
   };
   onDoubleClick?: (nodeId: string) => void;
   executionState?: 'idle' | 'running' | 'completed' | 'failed';

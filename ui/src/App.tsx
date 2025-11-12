@@ -21,7 +21,7 @@ import {
   type SerializedDAG,
   NODE_TYPES,
 } from './types';
-import { convertToSerializedDAG } from './utils/converter';
+import { convertToSerializedDAG, convertFromSerializedDAG } from './utils/converter';
 import CustomNode from './components/CustomNode';
 import Sidebar from './components/Sidebar';
 import NodeTypeMenu from './components/NodeTypeMenu';
@@ -118,6 +118,10 @@ function App() {
   const historyIndexRef = useRef(-1);
   const isUndoRedoRef = useRef(false);
   const saveHistoryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Load dialog state
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [loadJsonText, setLoadJsonText] = useState('');
   
   // Keep historyIndexRef in sync with historyIndex state
   useEffect(() => {
@@ -637,19 +641,90 @@ function App() {
     }
   }, [isExecuting, addLog, nodes, edges]);
 
-  const onLoad = useCallback(() => {
-    const saved = localStorage.getItem('dag-json');
-    if (saved) {
-      try {
-        const dagData = JSON.parse(saved);
-        // TODO: Implement loading from JSON
-        alert('Load functionality coming soon!');
-      } catch (e) {
-        alert('Error loading DAG: ' + e);
-      }
-    } else {
-      alert('No saved DAG found');
+  const handleLoadFromFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setLoadJsonText(text);
+    };
+    reader.onerror = () => {
+      addLog('error', 'Failed to read file');
+    };
+    reader.readAsText(file);
+    
+    // Reset file input so same file can be selected again
+    event.target.value = '';
+  }, [addLog]);
+
+  const handleLoadFromText = useCallback(() => {
+    if (!loadJsonText.trim()) {
+      addLog('error', 'Please provide JSON to load');
+      return;
     }
+
+    try {
+      const dagData = JSON.parse(loadJsonText);
+      
+      // Validate it's a SerializedDAG
+      if (!dagData.nodes || !Array.isArray(dagData.nodes)) {
+        throw new Error('Invalid DAG format: missing nodes array');
+      }
+      if (!dagData.edges || !Array.isArray(dagData.edges)) {
+        throw new Error('Invalid DAG format: missing edges array');
+      }
+
+      // Convert from SerializedDAG to ReactFlow nodes/edges
+      const updateNodeCounter = (maxId: number) => {
+        // maxId is already the numeric part extracted from node IDs
+        if (maxId > nodeIdCounter) {
+          nodeIdCounter = maxId;
+          localStorage.setItem(STORAGE_KEY_COUNTER, nodeIdCounter.toString());
+        }
+      };
+
+      const { nodes: loadedNodes, edges: loadedEdges } = convertFromSerializedDAG(
+        dagData,
+        updateNodeCounter
+      );
+      
+      // Clear current state and load new nodes/edges
+      setNodes(loadedNodes);
+      setEdges(loadedEdges);
+      
+      // Save to localStorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        nodes: loadedNodes,
+        edges: loadedEdges,
+        nodeCounter: nodeIdCounter,
+      }));
+      localStorage.setItem('dag-json', loadJsonText);
+      
+      // Close dialog and clear text
+      setShowLoadDialog(false);
+      setLoadJsonText('');
+      
+      addLog('info', `Successfully loaded DAG with ${loadedNodes.length} nodes and ${loadedEdges.length} edges`);
+      
+      // Fit view to show all nodes
+      setTimeout(() => {
+        if (reactFlowInstance) {
+          reactFlowInstance.fitView({ padding: 0.2, duration: 500 });
+        }
+      }, 100);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      addLog('error', `Error loading DAG: ${errorMessage}`);
+      console.error('Load error:', e);
+    }
+  }, [loadJsonText, setNodes, setEdges, addLog, reactFlowInstance]);
+
+  const onLoad = useCallback(() => {
+    // Clear the text box and show dialog
+    setLoadJsonText('');
+    setShowLoadDialog(true);
   }, []);
 
   const onCreateNodeFromConnection = useCallback(
@@ -998,6 +1073,147 @@ function App() {
           </button>
         </div>
       </div>
+      {showLoadDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => {
+            setShowLoadDialog(false);
+            setLoadJsonText('');
+          }}
+        >
+          <div
+            style={{
+              background: '#2a2a2a',
+              border: '1px solid #4a4a4a',
+              borderRadius: '12px',
+              padding: '24px',
+              minWidth: '600px',
+              maxWidth: '800px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              zIndex: 2001,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '18px', fontWeight: 600 }}>
+              Load DAG from JSON
+            </h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+                Load from File
+              </label>
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={handleLoadFromFile}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#3a3a3a',
+                  border: '1px solid #4a4a4a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px', color: '#9ca3af', textAlign: 'center', fontSize: '14px' }}>
+              OR
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', color: '#9ca3af', marginBottom: '8px', fontSize: '14px' }}>
+                Paste JSON
+              </label>
+              <textarea
+                value={loadJsonText}
+                onChange={(e) => setLoadJsonText(e.target.value)}
+                placeholder='{"nodes": [...], "edges": [...]}'
+                rows={12}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#3a3a3a',
+                  border: '1px solid #4a4a4a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  fontFamily: 'monospace',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowLoadDialog(false);
+                  setLoadJsonText('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  background: '#3a3a3a',
+                  border: '1px solid #4a4a4a',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#4a4a4a';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#3a3a3a';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLoadFromText}
+                disabled={!loadJsonText.trim()}
+                style={{
+                  padding: '10px 20px',
+                  background: loadJsonText.trim() ? '#3b82f6' : '#4a4a4a',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: 'white',
+                  cursor: loadJsonText.trim() ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  opacity: loadJsonText.trim() ? 1 : 0.5,
+                }}
+                onMouseEnter={(e) => {
+                  if (loadJsonText.trim()) {
+                    e.currentTarget.style.background = '#2563eb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (loadJsonText.trim()) {
+                    e.currentTarget.style.background = '#3b82f6';
+                  }
+                }}
+              >
+                Load from Text
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="editor-container">
         <Sidebar onNodeAdd={onNodeAdd} />
         <div className="flow-container" ref={reactFlowWrapper}>

@@ -209,3 +209,192 @@ export function convertToSerializedDAG(nodes: Node[], edges: Edge[]): Serialized
     edges: serializedEdges,
   };
 }
+
+/**
+ * Simple layout algorithm to position nodes
+ */
+function layoutNodes(nodeCount: number, startX = 250, startY = 250, spacingX = 300, spacingY = 200): Array<{ x: number; y: number }> {
+  const positions: Array<{ x: number; y: number }> = [];
+  const nodesPerRow = Math.ceil(Math.sqrt(nodeCount));
+  
+  for (let i = 0; i < nodeCount; i++) {
+    const row = Math.floor(i / nodesPerRow);
+    const col = i % nodesPerRow;
+    positions.push({
+      x: startX + col * spacingX,
+      y: startY + row * spacingY,
+    });
+  }
+  
+  return positions;
+}
+
+/**
+ * Convert SerializedDAG format to ReactFlow nodes and edges
+ */
+export function convertFromSerializedDAG(
+  serializedDAG: SerializedDAG,
+  updateNodeCounter?: (maxId: number) => void
+): { nodes: Node[]; edges: Edge[] } {
+  const { nodes: serializedNodes, edges: serializedEdges } = serializedDAG;
+  
+  // Calculate positions for nodes
+  const positions = layoutNodes(serializedNodes.length);
+  
+  // Track max node ID to update counter
+  let maxNodeId = 0;
+  
+  // Convert serialized nodes to ReactFlow nodes
+  const nodes: Node[] = serializedNodes.map((serializedNode, index) => {
+    // Extract numeric part from node ID to track max
+    const idMatch = serializedNode.id.match(/\d+/);
+    if (idMatch) {
+      const idNum = parseInt(idMatch[0], 10);
+      if (idNum > maxNodeId) {
+        maxNodeId = idNum;
+      }
+    }
+    
+    const nodeType = serializedNode.type;
+    const config = serializedNode.config as Record<string, unknown> | undefined;
+    const position = positions[index] || { x: 250 + index * 300, y: 250 };
+    
+    // Build node data based on type
+    const nodeData: Record<string, unknown> = {
+      label: serializedNode.label || serializedNode.id,
+      nodeType,
+      id: serializedNode.id,
+    };
+    
+    // Convert config based on node type
+    if (nodeType === 'literal') {
+      nodeData.value = config?.value ?? '';
+    } else if (nodeType === 'simple_llm') {
+      const llmConfig: Record<string, unknown> = {
+        model: config?.model || 'openai/gpt-4o-mini',
+      };
+      if (config?.system) {
+        llmConfig.system = String(config.system);
+      }
+      if (config?.prompt) {
+        llmConfig.prompt = String(config.prompt);
+      }
+      nodeData.llmConfig = llmConfig;
+    } else if (nodeType === 'structured_llm') {
+      const structuredLLMConfig: Record<string, unknown> = {
+        model: config?.model || 'openai/gpt-4o-mini',
+        schema: JSON.stringify(config?.schema || {}, null, 2),
+      };
+      if (config?.prompt) {
+        structuredLLMConfig.prompt = String(config.prompt);
+      }
+      nodeData.structuredLLMConfig = structuredLLMConfig;
+    } else if (nodeType === 'map') {
+      const mapConfig: Record<string, unknown> = {
+        parallel: config?.parallel ?? true,
+      };
+      if (config?.transformerId) {
+        mapConfig.transformerId = String(config.transformerId);
+      }
+      nodeData.mapConfig = mapConfig;
+    } else if (nodeType === 'flatmap') {
+      const flatmapConfig: Record<string, unknown> = {
+        parallel: config?.parallel ?? true,
+      };
+      if (config?.transformerId) {
+        flatmapConfig.transformerId = String(config.transformerId);
+      }
+      nodeData.flatmapConfig = flatmapConfig;
+    } else if (nodeType === 'exa_search') {
+      const exaSearchConfig: Record<string, unknown> = {
+        type: (config?.type as string) || 'auto',
+        numResults: (config?.numResults as number) || 10,
+      };
+      if (config?.category) {
+        exaSearchConfig.category = config.category as string;
+      }
+      if (config?.includeDomains) {
+        exaSearchConfig.includeDomains = config.includeDomains as string[];
+      }
+      if (config?.excludeDomains) {
+        exaSearchConfig.excludeDomains = config.excludeDomains as string[];
+      }
+      if (config?.includeText) {
+        exaSearchConfig.includeText = config.includeText as string[];
+      }
+      if (config?.excludeText) {
+        exaSearchConfig.excludeText = config.excludeText as string[];
+      }
+      nodeData.exaSearchConfig = exaSearchConfig;
+    } else if (nodeType === 'dedupe') {
+      const dedupeConfig: Record<string, unknown> = {
+        method: (config?.method as string) || 'first',
+      };
+      if (config?.byProperty) {
+        dedupeConfig.byProperty = String(config.byProperty);
+      }
+      nodeData.dedupeConfig = dedupeConfig;
+    } else if (nodeType === 'cache') {
+      nodeData.cacheConfig = {
+        property: String(config?.property || ''),
+      };
+    } else if (nodeType === 'extract') {
+      nodeData.extractConfig = {
+        property: String(config?.property || ''),
+      };
+    } else if (nodeType === 'filter') {
+      nodeData.filterConfig = {
+        expression: String(config?.expression || ''),
+      };
+    } else if (nodeType === 'agent') {
+      const tools = (config?.tools as Array<{
+        name: string;
+        description: string;
+        inputSchema: Record<string, unknown>;
+        transformerId: string;
+      }>) || [];
+      
+      const agentConfig: Record<string, unknown> = {
+        model: config?.model || 'openai/gpt-4o-mini',
+        tools: tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: JSON.stringify(tool.inputSchema, null, 2),
+          transformerId: tool.transformerId,
+        })),
+      };
+      if (config?.system) {
+        agentConfig.system = String(config.system);
+      }
+      if (config?.maxLoops !== undefined) {
+        agentConfig.maxLoops = Number(config.maxLoops);
+      }
+      if (config?.schema) {
+        agentConfig.schema = JSON.stringify(config.schema, null, 2);
+      }
+      nodeData.agentConfig = agentConfig;
+    }
+    
+    return {
+      id: serializedNode.id,
+      type: 'custom',
+      position,
+      data: nodeData,
+    };
+  });
+  
+  // Convert serialized edges to ReactFlow edges
+  const edges: Edge[] = serializedEdges.map((serializedEdge, index) => ({
+    id: `edge-${index}`,
+    source: serializedEdge.from,
+    target: serializedEdge.to,
+    type: 'smoothstep',
+  }));
+  
+  // Update node counter if callback provided
+  if (updateNodeCounter && maxNodeId > 0) {
+    updateNodeCounter(maxNodeId);
+  }
+  
+  return { nodes, edges };
+}
