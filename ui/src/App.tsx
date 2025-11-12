@@ -979,7 +979,7 @@ function App() {
               strokeDasharray: '5,5',
               opacity: 0.6,
             },
-            type: 'bezier',
+            type: 'straight',
             animated: false,
           });
         }
@@ -1003,7 +1003,7 @@ function App() {
               strokeDasharray: '5,5',
               opacity: 0.6,
             },
-            type: 'bezier',
+            type: 'straight',
             animated: false,
           });
         }
@@ -1029,7 +1029,7 @@ function App() {
                   strokeDasharray: '5,5',
                   opacity: 0.6,
                 },
-                type: 'bezier',
+                type: 'straight',
                 animated: false,
                 label: tool.name,
                 labelStyle: {
