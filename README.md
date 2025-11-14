@@ -165,6 +165,8 @@ curl -X POST http://localhost:3001/api/execute \
 
 A visual drag-and-drop editor for creating DAGs. Uses the SDK and can save/load DAGs as JSON. Requires the App HTTP server to be running for execution.
 
+![Composable Search UI](./assets/ui-screenshot.png)
+
 **Features:**
 
 - Drag-and-drop node creation
